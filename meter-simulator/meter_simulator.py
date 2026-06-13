@@ -25,12 +25,19 @@ class MeterSimulator:
             print(f"Unexpected disconnection: {rc}")
 
     def connect(self):
-        try:
-            self.client.connect(self.mqtt_host, self.mqtt_port, keepalive=60)
-            self.client.loop_start()
-        except Exception as e:
-            print(f"Connection error: {e}")
-            raise
+        """Connect to MQTT broker, retrying until it is reachable."""
+        delay = 2
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                self.client.connect(self.mqtt_host, self.mqtt_port, keepalive=60)
+                self.client.loop_start()
+                return
+            except Exception as e:
+                print(f"MQTT connect attempt {attempt} failed: {e}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
 
     def disconnect(self):
         self.client.loop_stop()

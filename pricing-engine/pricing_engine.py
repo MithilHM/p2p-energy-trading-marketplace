@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import json
+import time
 from kafka import KafkaConsumer
 from collections import deque
 import threading
@@ -77,13 +78,25 @@ def consume_market_state(kafka_broker: str):
     """Consume market state updates from Kafka"""
     global current_market_state
 
-    consumer = KafkaConsumer(
-        "market-state",
-        bootstrap_servers=[kafka_broker],
-        value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-        auto_offset_reset="latest",
-        group_id="pricing-engine"
-    )
+    # Create the consumer with retry/backoff so a not-yet-ready broker
+    # doesn't kill the background thread.
+    delay = 2
+    attempt = 0
+    consumer = None
+    while consumer is None:
+        attempt += 1
+        try:
+            consumer = KafkaConsumer(
+                "market-state",
+                bootstrap_servers=[kafka_broker],
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                auto_offset_reset="latest",
+                group_id="pricing-engine"
+            )
+        except Exception as e:
+            logger.warning(f"Kafka consumer init attempt {attempt} failed: {e}")
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
 
     logger.info("Consuming market state from Kafka...")
 

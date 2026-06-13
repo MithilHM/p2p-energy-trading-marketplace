@@ -21,28 +21,32 @@ class StorageWriter:
         self.init_influxdb()
 
     def init_influxdb(self):
-        """Initialize InfluxDB connection"""
-        try:
-            url = f"http://{self.influx_host}:{self.influx_port}"
-            self.influx_client = InfluxDBClient(
-                url=url,
-                org="energy_org",
-                token="energy-token"
-            )
-            self.write_api = self.influx_client.write_api(write_type=SYNCHRONOUS)
-
-            # Create bucket if not exists
-            buckets_api = self.influx_client.buckets_api()
+        """Initialize InfluxDB connection, retrying until it is reachable."""
+        url = f"http://{self.influx_host}:{self.influx_port}"
+        delay = 2
+        attempt = 0
+        while True:
+            attempt += 1
             try:
-                bucket = buckets_api.find_bucket_by_name("energy_db")
-                logger.info(f"Connected to InfluxDB bucket: {bucket.name}")
-            except Exception:
-                logger.info("Creating new bucket: energy_db")
-                buckets_api.create_bucket(bucket_name="energy_db", org="energy_org")
+                self.influx_client = InfluxDBClient(
+                    url=url,
+                    org="energy_org",
+                    token="energy-token"
+                )
+                # ping() verifies the server is reachable and the token is valid
+                self.influx_client.ping()
+                self.write_api = self.influx_client.write_api(write_type=SYNCHRONOUS)
 
-        except Exception as e:
-            logger.error(f"InfluxDB connection error: {e}")
-            raise
+                bucket = self.influx_client.buckets_api().find_bucket_by_name("energy_db")
+                if bucket:
+                    logger.info(f"Connected to InfluxDB bucket: {bucket.name}")
+                else:
+                    logger.warning("Bucket energy_db not found; it should be auto-created by InfluxDB init")
+                return
+            except Exception as e:
+                logger.warning(f"InfluxDB init attempt {attempt} failed: {e}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
 
     def save_production(self, meter_id, energy, timestamp_str):
         """save_production: Store production data to InfluxDB"""
@@ -97,17 +101,30 @@ class StorageWriter:
         except Exception:
             return int(datetime.utcnow().timestamp() * 1e9)
 
+    def _create_consumer(self, topic, group_id):
+        """Create a KafkaConsumer, retrying until the broker is reachable."""
+        delay = 2
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                consumer = KafkaConsumer(
+                    topic,
+                    bootstrap_servers=[self.kafka_broker],
+                    value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                    auto_offset_reset="earliest",
+                    group_id=group_id
+                )
+                logger.info(f"Consuming from {topic} topic...")
+                return consumer
+            except Exception as e:
+                logger.warning(f"Kafka consumer init for {topic} attempt {attempt} failed: {e}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
+
     def consume_production(self):
         """Consume from energy-production topic"""
-        consumer = KafkaConsumer(
-            "energy-production",
-            bootstrap_servers=[self.kafka_broker],
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            auto_offset_reset="earliest",
-            group_id="storage-production"
-        )
-        logger.info("Consuming from energy-production topic...")
-
+        consumer = self._create_consumer("energy-production", "storage-production")
         for message in consumer:
             try:
                 data = message.value
@@ -117,15 +134,7 @@ class StorageWriter:
 
     def consume_consumption(self):
         """Consume from energy-consumption topic"""
-        consumer = KafkaConsumer(
-            "energy-consumption",
-            bootstrap_servers=[self.kafka_broker],
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            auto_offset_reset="earliest",
-            group_id="storage-consumption"
-        )
-        logger.info("Consuming from energy-consumption topic...")
-
+        consumer = self._create_consumer("energy-consumption", "storage-consumption")
         for message in consumer:
             try:
                 data = message.value
@@ -135,15 +144,7 @@ class StorageWriter:
 
     def consume_market_state(self):
         """Consume from market-state topic"""
-        consumer = KafkaConsumer(
-            "market-state",
-            bootstrap_servers=[self.kafka_broker],
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            auto_offset_reset="earliest",
-            group_id="storage-market-state"
-        )
-        logger.info("Consuming from market-state topic...")
-
+        consumer = self._create_consumer("market-state", "storage-market-state")
         for message in consumer:
             try:
                 data = message.value

@@ -1,4 +1,5 @@
 import json
+import time
 import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
@@ -26,18 +27,24 @@ class MQTTToKafkaBridge:
         self.init_kafka()
 
     def init_kafka(self):
-        """Initialize Kafka producer"""
-        try:
-            self.kafka_producer = KafkaProducer(
-                bootstrap_servers=[self.kafka_broker],
-                value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                acks='all',
-                retries=3
-            )
-            logger.info(f"Kafka producer initialized: {self.kafka_broker}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Kafka: {e}")
-            raise
+        """Initialize Kafka producer, retrying until the broker is reachable."""
+        delay = 2
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                self.kafka_producer = KafkaProducer(
+                    bootstrap_servers=[self.kafka_broker],
+                    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                    acks='all',
+                    retries=3
+                )
+                logger.info(f"Kafka producer initialized: {self.kafka_broker}")
+                return
+            except Exception as e:
+                logger.warning(f"Kafka init attempt {attempt} failed: {e}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
 
     def on_mqtt_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -87,13 +94,19 @@ class MQTTToKafkaBridge:
             logger.warning(f"Unexpected MQTT disconnection: {rc}")
 
     def connect(self):
-        """Connect to MQTT broker"""
-        try:
-            self.mqtt_client.connect(self.mqtt_host, self.mqtt_port, keepalive=60)
-            self.mqtt_client.loop_start()
-        except Exception as e:
-            logger.error(f"MQTT connection error: {e}")
-            raise
+        """Connect to MQTT broker, retrying until it is reachable."""
+        delay = 2
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                self.mqtt_client.connect(self.mqtt_host, self.mqtt_port, keepalive=60)
+                self.mqtt_client.loop_start()
+                return
+            except Exception as e:
+                logger.warning(f"MQTT connect attempt {attempt} failed: {e}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
 
     def disconnect(self):
         """Disconnect from MQTT and Kafka"""
@@ -108,7 +121,6 @@ class MQTTToKafkaBridge:
         try:
             logger.info("MQTT to Kafka bridge running...")
             while True:
-                import time
                 time.sleep(1)
         except KeyboardInterrupt:
             logger.info("Shutting down bridge...")

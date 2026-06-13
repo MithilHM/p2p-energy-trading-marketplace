@@ -30,6 +30,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
     networks:
       - energy-network
 
@@ -45,19 +51,27 @@ services:
     networks:
       - energy-network
 
-  # InfluxDB - time-series database
+  # InfluxDB - time-series database (v2.x auto-setup)
   influxdb:
     image: influxdb:2.7
     container_name: influxdb
     ports:
       - "8086:8086"
     environment:
-      INFLUXDB_DB: energy_db
-      INFLUXDB_ADMIN_USER: admin
-      INFLUXDB_ADMIN_PASSWORD: adminpassword
-      INFLUXDB_HTTP_AUTH_ENABLED: 'false'
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword123
+      DOCKER_INFLUXDB_INIT_ORG: energy_org
+      DOCKER_INFLUXDB_INIT_BUCKET: energy_db
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: energy-token
     volumes:
       - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
     networks:
       - energy-network
 
@@ -96,8 +110,10 @@ services:
       dockerfile: Dockerfile
     container_name: kafka-producer
     depends_on:
-      - mqtt
-      - kafka
+      mqtt:
+        condition: service_started
+      kafka:
+        condition: service_healthy
     environment:
       MQTT_HOST: mqtt
       MQTT_PORT: 1883
@@ -113,9 +129,12 @@ services:
       dockerfile: Dockerfile
     container_name: spark-streaming
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:29092
+    volumes:
+      - spark-checkpoint:/checkpoint
     networks:
       - energy-network
     restart: unless-stopped
@@ -127,8 +146,10 @@ services:
       dockerfile: Dockerfile
     container_name: storage-service
     depends_on:
-      - kafka
-      - influxdb
+      kafka:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:29092
       INFLUXDB_HOST: influxdb
@@ -144,7 +165,8 @@ services:
       dockerfile: Dockerfile
     container_name: matching-engine
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8001:8001"
     environment:
@@ -160,7 +182,8 @@ services:
       dockerfile: Dockerfile
     container_name: pricing-engine
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8002:8002"
     environment:
@@ -175,3 +198,4 @@ networks:
 
 volumes:
   influxdb-data:
+  spark-checkpoint:

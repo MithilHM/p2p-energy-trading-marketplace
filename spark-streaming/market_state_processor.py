@@ -3,19 +3,26 @@ import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, from_json, sum as spark_sum, window,
-    lit, concat_ws, to_json, struct, to_timestamp
+    when, to_json, struct, to_timestamp, coalesce, lit
 )
 from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, TimestampType
+    StructType, StructField, StringType, DoubleType
 )
 
-# Schema for production/consumption messages
+# Schema for production/consumption messages.
+# Both topics share this schema; the "role" field distinguishes
+# producers (supply) from consumers (demand).
 METER_SCHEMA = StructType([
     StructField("meterId", StringType()),
     StructField("role", StringType()),
     StructField("energy", DoubleType()),
     StructField("timestamp", StringType())
 ])
+
+# Persistent checkpoint location (mounted volume, survives restarts)
+CHECKPOINT_DIR = os.getenv("CHECKPOINT_DIR", "/checkpoint")
+WINDOW_DURATION = "1 minute"
+WATERMARK_DELAY = "2 minutes"
 
 
 def create_spark_session(app_name="MarketStateProcessor"):
@@ -24,75 +31,64 @@ def create_spark_session(app_name="MarketStateProcessor"):
         .builder \
         .appName(app_name) \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
-        .config("spark.sql.streaming.checkpointLocation", "/tmp/spark-checkpoint") \
+        .config("spark.sql.streaming.checkpointLocation", f"{CHECKPOINT_DIR}/session") \
         .getOrCreate()
 
 
-def readStream(spark, kafka_broker, topic):
-    """readStream: Read from Kafka topic"""
+def readStream(spark, kafka_broker, topics):
+    """readStream: Read both energy topics in a single stream.
+
+    Subscribing to both topics at once lets us aggregate supply and demand
+    in ONE stateful aggregation, avoiding a fragile stream-stream join of
+    two separate aggregations (which is not supported in append mode).
+    """
     return spark \
         .readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", kafka_broker) \
-        .option("subscribe", topic) \
+        .option("subscribe", topics) \
         .option("startingOffsets", "latest") \
         .load()
 
 
 def parse_messages(df, schema):
-    """Parse JSON messages from Kafka"""
+    """Parse JSON messages from Kafka and derive event_time"""
     return df.select(
-        from_json(col("value").cast("string"), schema).alias("data"),
-        col("timestamp")
-    ).select("data.*", col("timestamp").alias("kafka_timestamp"))
+        from_json(col("value").cast("string"), schema).alias("data")
+    ).select("data.*") \
+     .withColumn("event_time", to_timestamp(col("timestamp")))
 
 
-def groupBy_and_aggregate(production_df, consumption_df):
-    """groupBy and aggregate: Compute total supply and demand per time window"""
+def aggregate_market_state(parsed_df):
+    """groupBy + aggregate: Compute supply/demand/surplus per time window.
 
-    # 1-minute tumbling window on both streams
-    window_duration = "1 minute"
-
-    # Aggregate production (supply)
-    supply = production_df \
-        .withColumn("event_time", to_timestamp(col("timestamp"))) \
-        .groupBy(window(col("event_time"), window_duration)) \
-        .agg(spark_sum(col("energy")).alias("total_supply"))
-
-    # Aggregate consumption (demand)
-    demand = consumption_df \
-        .withColumn("event_time", to_timestamp(col("timestamp"))) \
-        .groupBy(window(col("event_time"), window_duration)) \
-        .agg(spark_sum(col("energy")).alias("total_demand"))
-
-    # Join supply and demand on window
-    market_state = supply.join(
-        demand,
-        on="window",
-        how="outer"
-    ).select(
-        col("window.start").alias("window_start"),
-        col("window.end").alias("window_end"),
-        col("total_supply").cast("double"),
-        col("total_demand").cast("double")
-    )
-
-    # Fill nulls with 0
-    market_state = market_state.fillna(0)
-
-    # Calculate surplus/deficit
-    market_state = market_state.withColumn(
-        "surplus",
-        col("total_supply") - col("total_demand")
-    )
-
-    return market_state
+    A watermark is required so that append-mode output can finalize and emit
+    each window once event time has advanced past it. supply and demand are
+    derived from the same rows using conditional sums on the "role" field.
+    """
+    return parsed_df \
+        .withWatermark("event_time", WATERMARK_DELAY) \
+        .groupBy(window(col("event_time"), WINDOW_DURATION)) \
+        .agg(
+            spark_sum(when(col("role") == "producer", col("energy"))).alias("total_supply"),
+            spark_sum(when(col("role") == "consumer", col("energy"))).alias("total_demand")
+        ) \
+        .select(
+            col("window.start").alias("window_start"),
+            # Null-safe: a window may contain only producers or only consumers
+            coalesce(col("total_supply"), lit(0.0)).alias("total_supply"),
+            coalesce(col("total_demand"), lit(0.0)).alias("total_demand")
+        ) \
+        .withColumn("surplus", col("total_supply") - col("total_demand"))
 
 
 def writeStream(df, kafka_broker, output_topic, checkpoint_location):
-    """writeStream: Write market state to Kafka"""
+    """writeStream: Write market state to Kafka in append mode.
 
-    # Format output as JSON matching expected schema
+    Append mode is valid here because this is a single windowed aggregation
+    with a watermark - each window is emitted exactly once after the
+    watermark passes its end.
+    """
     output_df = df.select(
         to_json(struct(
             col("total_supply").alias("supply"),
@@ -102,59 +98,52 @@ def writeStream(df, kafka_broker, output_topic, checkpoint_location):
         )).alias("value")
     )
 
-    query = output_df \
+    return output_df \
         .writeStream \
         .format("kafka") \
+        .outputMode("append") \
         .option("kafka.bootstrap.servers", kafka_broker) \
         .option("topic", output_topic) \
         .option("checkpointLocation", checkpoint_location) \
-        .option("startingOffsets", "earliest") \
         .trigger(processingTime="10 seconds") \
         .start()
 
-    return query
-
 
 def main():
-    """Main: Orchestrate Spark Streaming pipeline"""
+    """Main: Orchestrate the Spark Streaming pipeline"""
 
-    # Configuration
     kafka_broker = os.getenv("KAFKA_BROKER", "kafka:29092")
-    production_topic = "energy-production"
-    consumption_topic = "energy-consumption"
+    topics = "energy-production,energy-consumption"
     output_topic = "market-state"
 
     print(f"[INFO] Connecting to Kafka: {kafka_broker}")
 
-    # Create Spark session
     spark = create_spark_session()
     spark.sparkContext.setLogLevel("WARN")
 
     try:
-        # Read Kafka streams
-        print(f"[INFO] Reading from {production_topic} and {consumption_topic}")
-        production_stream = readStream(spark, kafka_broker, production_topic)
-        consumption_stream = readStream(spark, kafka_broker, consumption_topic)
+        # Single stream over both topics
+        print(f"[INFO] Reading from {topics}")
+        raw_stream = readStream(spark, kafka_broker, topics)
 
-        # Parse JSON
-        production_df = parse_messages(production_stream, METER_SCHEMA)
-        consumption_df = parse_messages(consumption_stream, METER_SCHEMA)
+        # Parse JSON and derive event time
+        parsed = parse_messages(raw_stream, METER_SCHEMA)
 
-        # Aggregate
-        print("[INFO] Starting aggregation...")
-        market_state = groupBy_and_aggregate(production_df, consumption_df)
+        # Single windowed aggregation (supply + demand + surplus)
+        print("[INFO] Starting windowed aggregation...")
+        market_state = aggregate_market_state(parsed)
 
-        # Write output
+        # Write to output topic
         print(f"[INFO] Writing to {output_topic} topic...")
         query = writeStream(
             market_state,
             kafka_broker,
             output_topic,
-            "/tmp/spark-checkpoint-market-state"
+            f"{CHECKPOINT_DIR}/market-state"
         )
 
-        # Await termination
-        print("[INFO] Streaming started. Ctrl+C to stop.")
+        print("[INFO] Streaming started. First window emits after watermark "
+              f"({WATERMARK_DELAY}). Ctrl+C to stop.")
         query.awaitTermination()
 
     except Exception as e:

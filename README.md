@@ -37,6 +37,12 @@ This starts:
 - **InfluxDB** (time-series DB) on `localhost:8086`
 - **Hardhat** (Ethereum local node) on `localhost:8545`
 
+InfluxDB is provisioned automatically on first start (org `energy_org`, bucket
+`energy_db`, admin token `energy-token`) — the storage service uses these
+credentials directly. Services that depend on Kafka/InfluxDB wait for those
+to report **healthy** before starting, and each service also retries its own
+connection with backoff, so the stack comes up cleanly without crash-loops.
+
 ### Check Services
 
 ```bash
@@ -138,8 +144,9 @@ docker exec kafka kafka-console-consumer \
 Once all services are running, monitor the market state aggregations:
 
 ```bash
-# Read market state from Kafka
-# (Wait 60+ seconds for first aggregation window)
+# Read market state from Kafka.
+# NOTE: the first record appears only after the 1-minute window closes AND the
+# 2-minute watermark passes it, so expect ~2-3 minutes of warm-up before output.
 docker exec kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
   --topic market-state \
@@ -151,10 +158,11 @@ docker exec kafka kafka-console-consumer \
 ```
 
 **Spark Streaming Details:**
-- Reads: `energy-production`, `energy-consumption` topics
-- Aggregation: 1-minute tumbling windows
-- Output: `market-state` topic
-- Update frequency: Every 10 seconds
+- Reads BOTH `energy-production` and `energy-consumption` in a single stream
+- One windowed aggregation (1-minute tumbling) with a 2-minute watermark,
+  deriving supply/demand from the `role` field — no fragile stream-stream join
+- Output: `market-state` topic, written in append mode (each window emitted once)
+- Checkpoint persisted to a Docker volume, so restarts don't reprocess old data
 
 ## Testing Phase 5: Storage Service
 
