@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+*.jar
+*.egg-info/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database
+data/
+*.db
+influxdb-data/
+
+# Smart contracts
+smart-contracts/artifacts/
+smart-contracts/cache/
+smart-contracts/typechain-types/
+
+# OS
+.DS_Store
+Thumbs.db
