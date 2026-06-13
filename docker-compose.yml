@@ -120,6 +120,55 @@ services:
       - energy-network
     restart: unless-stopped
 
+  # Phase 5: Storage Service (InfluxDB)
+  storage-service:
+    build:
+      context: ./storage-service
+      dockerfile: Dockerfile
+    container_name: storage-service
+    depends_on:
+      - kafka
+      - influxdb
+    environment:
+      KAFKA_BROKER: kafka:29092
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: 8086
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phase 6: Matching Engine
+  matching-engine:
+    build:
+      context: ./matching-engine
+      dockerfile: Dockerfile
+    container_name: matching-engine
+    depends_on:
+      - kafka
+    ports:
+      - "8001:8001"
+    environment:
+      KAFKA_BROKER: kafka:29092
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phase 7: Pricing Engine
+  pricing-engine:
+    build:
+      context: ./pricing-engine
+      dockerfile: Dockerfile
+    container_name: pricing-engine
+    depends_on:
+      - kafka
+    ports:
+      - "8002:8002"
+    environment:
+      KAFKA_BROKER: kafka:29092
+    networks:
+      - energy-network
+    restart: unless-stopped
+
 networks:
   energy-network:
     driver: bridge

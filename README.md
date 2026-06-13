@@ -59,9 +59,9 @@ curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
 | 2 | Meter Simulator | ✓ Complete |
 | 3 | MQTT → Kafka | ✓ Complete |
 | 4 | Spark Streaming | ✓ Complete |
-| 5 | Storage Service | Pending |
-| 6 | Matching Engine | Pending |
-| 7 | Pricing Engine | Pending |
+| 5 | Storage Service | ✓ Complete |
+| 6 | Matching Engine | ✓ Complete |
+| 7 | Pricing Engine | ✓ Complete |
 | 8 | Smart Contracts | Pending |
 | 9 | Blockchain Integration | Pending |
 | 10 | Demand Forecasting | Pending |
@@ -156,19 +156,121 @@ docker exec kafka kafka-console-consumer \
 - Output: `market-state` topic
 - Update frequency: Every 10 seconds
 
-### Complete Data Flow
+## Testing Phase 5: Storage Service
+
+The storage service persists all Kafka topics to InfluxDB:
+
+```bash
+# List InfluxDB buckets (after storage-service runs 60+ seconds)
+curl http://localhost:8086/api/v2/buckets \
+  -H "Authorization: Token energy-token"
+
+# Query energy_production measurements (in InfluxDB UI)
+# Organization: energy_org, Bucket: energy_db
+# Measurements: energy_production, energy_consumption, market_state
 ```
-Meter Simulator → MQTT (energy/production, energy/consumption)
-                    ↓
-            MQTT-Kafka Bridge
-                    ↓
-            Kafka (energy-production, energy-consumption)
-                    ↓
-            Spark Streaming (aggregate per minute)
-                    ↓
-                Kafka (market-state)
+
+**Storage Details:**
+- Consumes: `energy-production`, `energy-consumption`, `market-state` topics
+- Persists to InfluxDB with tags: `meter_id` (for production/consumption)
+- Time-indexed for historical analysis
+
+## Testing Phase 6: Matching Engine
+
+Test the matching engine API (runs on `localhost:8001`):
+
+```bash
+# Health check
+curl http://localhost:8001/health
+
+# Create a sell order (producer P001 selling 50 units @ $8/unit)
+curl -X POST http://localhost:8001/sell \
+  -H "Content-Type: application/json" \
+  -d '{
+    "seller_id": "P001",
+    "energy_units": 50,
+    "price_per_unit": 8.0
+  }'
+
+# Create a buy order (consumer C001 buying 50 units, willing to pay max $9/unit)
+curl -X POST http://localhost:8001/buy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "buyer_id": "C001",
+    "energy_units": 50,
+    "max_price_per_unit": 9.0
+  }'
+
+# View all executed trades
+curl http://localhost:8001/matches
+
+# View pending orders
+curl http://localhost:8001/orders
+
+# Get specific trade
+curl http://localhost:8001/trades/T000000
+```
+
+**Matching Engine Details:**
+- Matches based on: buyer's max_price ≥ seller's asking_price
+- Trade price: seller's asking price (favorable to seller)
+- Publishes trades to `trades` Kafka topic
+
+## Testing Phase 7: Pricing Engine
+
+Test the pricing engine API (runs on `localhost:8002`):
+
+```bash
+# Health check
+curl http://localhost:8002/health
+
+# Get current market price (based on supply/demand)
+curl http://localhost:8002/current-price
+# Example response:
+# {
+#   "current_price": 11.54,
+#   "supply": 120.5,
+#   "demand": 89.3,
+#   "price_trend": "rising",
+#   "timestamp": "2026-06-13T21:45:00Z"
+# }
+
+# Get price history (last 50 values)
+curl http://localhost:8002/price-history?limit=50
+
+# Get price analytics
+curl http://localhost:8002/analytics
+# Example response:
+# {
+#   "min_price": 8.5,
+#   "max_price": 14.2,
+#   "avg_price": 10.8,
+#   "current_price": 11.54,
+#   "volatility_percent": 40.2,
+#   "samples": 45
+# }
+```
+
+**Pricing Formula:**
+```
+price = BASE_PRICE(10) * (demand / supply)
+- High demand + low supply = high price
+- Low demand + high supply = low price
+```
+
+### Complete Data Flow (Phases 1-7)
+```
+Meters (MQTT)
+  ↓
+MQTT-Kafka Bridge → energy-production, energy-consumption
+  ↓
+Spark Streaming → market-state (1-min aggregation)
+  ↓
+├─→ Storage Service → InfluxDB (historical data)
+├─→ Pricing Engine (calculates dynamic prices)
+└─→ Matching Engine (awaits buy/sell orders)
 ```
 
 ## Next Steps
 
-→ Phase 5: Storage Service (Persist data to InfluxDB)
+→ Phase 8: Smart Contracts (Blockchain settlement)
