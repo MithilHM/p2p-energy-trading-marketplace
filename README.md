@@ -68,11 +68,11 @@ curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
 | 5 | Storage Service | ✓ Complete |
 | 6 | Matching Engine | ✓ Complete |
 | 7 | Pricing Engine | ✓ Complete |
-| 8 | Smart Contracts | Pending |
-| 9 | Blockchain Integration | Pending |
-| 10 | Demand Forecasting | Pending |
-| 11 | Price Prediction | Pending |
-| 12 | API Gateway | Pending |
+| 8 | Smart Contracts | ✓ Complete |
+| 9 | Blockchain Integration | ✓ Complete |
+| 10 | Demand Forecasting | ✓ Complete |
+| 11 | Price Prediction | ✓ Complete |
+| 12 | API Gateway | ✓ Complete |
 | 13 | Dashboard | Pending |
 | 14 | Monitoring & Deployment | Pending |
 
@@ -86,6 +86,7 @@ energy-trading-platform/
 ├── matching-engine/          # Phase 6
 ├── pricing-engine/           # Phase 7
 ├── smart-contracts/          # Phase 8
+├── blockchain-service/       # Phase 9
 ├── storage-service/          # Phase 5
 ├── forecasting-service/      # Phases 10-11
 ├── api-gateway/              # Phase 12
@@ -279,6 +280,92 @@ Spark Streaming → market-state (1-min aggregation)
 └─→ Matching Engine (awaits buy/sell orders)
 ```
 
+## Testing Phase 8: Smart Contracts
+
+The `smart-contracts` project (Hardhat) is auto-compiled, deployed, and the
+address/ABI written to `smart-contracts/deployments/EnergyTrade.json` when the
+`hardhat` container starts. To run the contract tests locally:
+
+```bash
+cd smart-contracts
+npm install
+npx hardhat compile
+npx hardhat test
+```
+
+`EnergyTrade.sol` provides escrow-based settlement: `createTrade()` (buyer
+escrows funds), `confirmTrade()` (seller confirms delivery), `releasePayment()`
+(funds to seller), `cancelTrade()` (refund buyer), and `getTrade()`.
+
+## Testing Phase 9: Blockchain Integration
+
+The blockchain service (`localhost:8003`) bridges the backend to Ethereum via
+web3.py. It reads the deployed contract address/ABI from the shared volume.
+
+```bash
+# Health (also reports Ethereum connectivity)
+curl http://localhost:8003/health
+
+# Settle a trade end-to-end (create + confirm + release) using a Hardhat account.
+# price_per_unit_wei is wei per unit; value escrowed = units * price_per_unit_wei.
+curl -X POST http://localhost:8003/trade/settle \
+  -H "Content-Type: application/json" \
+  -d '{
+    "seller": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "units": 20,
+    "price_per_unit_wei": 1000000000,
+    "auto_settle": true
+  }'
+
+# Read a trade's on-chain state
+curl http://localhost:8003/trade/0
+```
+
+## Testing Phases 10 & 11: Forecasting Service
+
+The forecasting service (`localhost:8004`) trains on InfluxDB history, falling
+back to a synthetic series when history is sparse (so it works on a fresh stack).
+
+```bash
+# Phase 10 - ARIMA demand forecast (next hour, or next N hours)
+curl "http://localhost:8004/forecast-demand?steps=3"
+# { "model": "ARIMA", "next_hour_demand": 1320.0, "forecast": [...] }
+
+# Phase 11 - price prediction (xgboost default; or model=random_forest)
+curl "http://localhost:8004/forecast-price?model=xgboost"
+# Optionally pass explicit conditions:
+curl "http://localhost:8004/forecast-price?supply=120&demand=95"
+```
+
+## Testing Phase 12: API Gateway
+
+The gateway (`localhost:8000`) is the single authenticated entry point. Obtain a
+JWT, then call backend services through `/orders`, `/pricing`, `/forecast`,
+`/trades` prefixes.
+
+```bash
+# 1. Log in (demo users: producer/producer123, consumer/consumer123, admin/admin123)
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -d "username=admin&password=admin123" | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+# 2. Call services through the gateway (Authorization header required)
+curl http://localhost:8000/pricing/current-price -H "Authorization: Bearer $TOKEN"
+curl "http://localhost:8000/forecast/forecast-demand?steps=2" -H "Authorization: Bearer $TOKEN"
+curl http://localhost:8000/orders/matches -H "Authorization: Bearer $TOKEN"
+curl http://localhost:8000/trades/trade/0 -H "Authorization: Bearer $TOKEN"
+
+# Without a valid token -> 401
+curl http://localhost:8000/pricing/current-price
+```
+
+**Gateway routing:**
+| Prefix | Backend | Port |
+|--------|---------|------|
+| `/orders/*`   | matching-engine     | 8001 |
+| `/pricing/*`  | pricing-engine      | 8002 |
+| `/trades/*`   | blockchain-service  | 8003 |
+| `/forecast/*` | forecasting-service | 8004 |
+
 ## Next Steps
 
-→ Phase 8: Smart Contracts (Blockchain settlement)
+→ Phase 13: React Dashboard (Producer / Consumer / Market views)

@@ -75,7 +75,7 @@ services:
     networks:
       - energy-network
 
-  # Ethereum Local Node (Hardhat JSON-RPC)
+  # Ethereum Local Node (Hardhat JSON-RPC) + auto-deploy of EnergyTrade
   hardhat:
     image: node:18-alpine
     container_name: hardhat-node
@@ -84,7 +84,22 @@ services:
       - ./smart-contracts:/app
     ports:
       - "8545:8545"
-    command: sh -c "npm install && npx hardhat node --hostname 0.0.0.0"
+    # Install deps, start the node in the background, wait for it, deploy the
+    # contract (writes deployments/EnergyTrade.json), then keep the node in the
+    # foreground so the container stays alive.
+    command: >
+      sh -c "npm install &&
+             npx hardhat node --hostname 0.0.0.0 &
+             until nc -z localhost 8545; do echo 'waiting for node...'; sleep 1; done &&
+             sleep 2 &&
+             npx hardhat run scripts/deploy.js --network localhost &&
+             wait"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/deployments/EnergyTrade.json"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     networks:
       - energy-network
 
@@ -188,6 +203,68 @@ services:
       - "8002:8002"
     environment:
       KAFKA_BROKER: kafka:29092
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phase 9: Blockchain Integration Service
+  blockchain-service:
+    build:
+      context: ./blockchain-service
+      dockerfile: Dockerfile
+    container_name: blockchain-service
+    depends_on:
+      hardhat:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    environment:
+      ETH_RPC: http://hardhat:8545
+      DEPLOYMENT_PATH: /deployments/EnergyTrade.json
+    volumes:
+      # Read the contract address/ABI written by the hardhat deploy step
+      - ./smart-contracts/deployments:/deployments:ro
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phases 10 & 11: Forecasting Service (demand ARIMA + price ML)
+  forecasting-service:
+    build:
+      context: ./forecasting-service
+      dockerfile: Dockerfile
+    container_name: forecasting-service
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    ports:
+      - "8004:8004"
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: 8086
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phase 12: API Gateway (single entry point + JWT auth)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    depends_on:
+      - matching-engine
+      - pricing-engine
+      - forecasting-service
+      - blockchain-service
+    ports:
+      - "8000:8000"
+    environment:
+      JWT_SECRET: dev-secret-change-me
+      MATCHING_URL: http://matching-engine:8001
+      PRICING_URL: http://pricing-engine:8002
+      FORECAST_URL: http://forecasting-service:8004
+      BLOCKCHAIN_URL: http://blockchain-service:8003
     networks:
       - energy-network
     restart: unless-stopped
