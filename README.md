@@ -58,7 +58,7 @@ curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
 | 1 | Infrastructure | ✓ Complete |
 | 2 | Meter Simulator | ✓ Complete |
 | 3 | MQTT → Kafka | ✓ Complete |
-| 4 | Spark Streaming | Pending |
+| 4 | Spark Streaming | ✓ Complete |
 | 5 | Storage Service | Pending |
 | 6 | Matching Engine | Pending |
 | 7 | Pricing Engine | Pending |
@@ -133,15 +133,42 @@ docker exec kafka kafka-console-consumer \
   --from-beginning
 ```
 
-### Data Flow
+## Testing Phase 4: Spark Streaming
+
+Once all services are running, monitor the market state aggregations:
+
+```bash
+# Read market state from Kafka
+# (Wait 60+ seconds for first aggregation window)
+docker exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic market-state \
+  --from-beginning
+
+# Example output:
+# {"supply":125.43,"demand":87.32,"surplus":38.11,"timestamp":"2026-06-13T21:35:00Z"}
+# {"supply":120.15,"demand":89.45,"surplus":30.70,"timestamp":"2026-06-13T21:36:00Z"}
+```
+
+**Spark Streaming Details:**
+- Reads: `energy-production`, `energy-consumption` topics
+- Aggregation: 1-minute tumbling windows
+- Output: `market-state` topic
+- Update frequency: Every 10 seconds
+
+### Complete Data Flow
 ```
 Meter Simulator → MQTT (energy/production, energy/consumption)
                     ↓
             MQTT-Kafka Bridge
                     ↓
-                 Kafka (energy-production, energy-consumption)
+            Kafka (energy-production, energy-consumption)
+                    ↓
+            Spark Streaming (aggregate per minute)
+                    ↓
+                Kafka (market-state)
 ```
 
 ## Next Steps
 
-→ Phase 4: Spark Streaming (Real-time market state computation)
+→ Phase 5: Storage Service (Persist data to InfluxDB)

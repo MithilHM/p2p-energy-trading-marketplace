@@ -106,6 +106,20 @@ services:
       - energy-network
     restart: unless-stopped
 
+  # Phase 4: Real-Time Stream Processing (Spark)
+  spark-streaming:
+    build:
+      context: ./spark-streaming
+      dockerfile: Dockerfile
+    container_name: spark-streaming
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKER: kafka:29092
+    networks:
+      - energy-network
+    restart: unless-stopped
+
 networks:
   energy-network:
     driver: bridge
