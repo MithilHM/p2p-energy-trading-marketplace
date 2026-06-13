@@ -55,9 +55,9 @@ curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
 
 | Phase | Service | Status |
 |-------|---------|--------|
-| 1 | Infrastructure | ✓ In Progress |
-| 2 | Meter Simulator | Pending |
-| 3 | MQTT → Kafka | Pending |
+| 1 | Infrastructure | ✓ Complete |
+| 2 | Meter Simulator | ✓ Complete |
+| 3 | MQTT → Kafka | ✓ Complete |
 | 4 | Spark Streaming | Pending |
 | 5 | Storage Service | Pending |
 | 6 | Matching Engine | Pending |
@@ -97,6 +97,51 @@ energy-trading-platform/
 3. **Independent testing**: Services tested standalone before integration
 4. **Incremental**: Avoid waiting for all services before testing one
 
+## Testing Phase 2 & 3: Data Pipeline
+
+Once `docker compose up` is running:
+
+### View MQTT Data (Phase 2)
+```bash
+# Subscribe to production data
+docker run -it eclipse-mosquitto mosquitto_sub -h mqtt-broker -t energy/production
+
+# In another terminal, subscribe to consumption data
+docker run -it eclipse-mosquitto mosquitto_sub -h mqtt-broker -t energy/consumption
+```
+
+### View Kafka Topics (Phase 3)
+```bash
+# List Kafka topics
+docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
+
+# Expected output:
+# __consumer_offsets
+# energy-consumption
+# energy-production
+
+# Read from energy-production topic
+docker exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic energy-production \
+  --from-beginning
+
+# Read from energy-consumption topic
+docker exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic energy-consumption \
+  --from-beginning
+```
+
+### Data Flow
+```
+Meter Simulator → MQTT (energy/production, energy/consumption)
+                    ↓
+            MQTT-Kafka Bridge
+                    ↓
+                 Kafka (energy-production, energy-consumption)
+```
+
 ## Next Steps
 
-→ Phase 2: Meter Simulator (MQTT producer for energy data)
+→ Phase 4: Spark Streaming (Real-time market state computation)

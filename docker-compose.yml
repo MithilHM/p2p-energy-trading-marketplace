@@ -74,6 +74,38 @@ services:
     networks:
       - energy-network
 
+  # Phase 2: Meter Simulator
+  meter-simulator:
+    build:
+      context: ./meter-simulator
+      dockerfile: Dockerfile
+    container_name: meter-simulator
+    depends_on:
+      - mqtt
+    environment:
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Phase 3: MQTT to Kafka Bridge
+  kafka-producer:
+    build:
+      context: ./kafka-producer
+      dockerfile: Dockerfile
+    container_name: kafka-producer
+    depends_on:
+      - mqtt
+      - kafka
+    environment:
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+      KAFKA_BROKER: kafka:29092
+    networks:
+      - energy-network
+    restart: unless-stopped
+
 networks:
   energy-network:
     driver: bridge
