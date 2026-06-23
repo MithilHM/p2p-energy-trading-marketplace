@@ -26,7 +26,6 @@ A decentralized energy trading platform combining real-time data streaming, smar
 ### Start Infrastructure
 
 ```bash
-cd energy-trading-platform
 docker compose up
 ```
 
@@ -79,7 +78,7 @@ curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
 ## Project Structure
 
 ```
-energy-trading-platform/
+p2p-energy-trading-marketplace/
 ├── meter-simulator/          # Phase 2
 ├── kafka-producer/           # Phase 3
 ├── spark-streaming/          # Phase 4

@@ -114,6 +114,12 @@ services:
     environment:
       MQTT_HOST: mqtt
       MQTT_PORT: 1883
+      # Virtual P2P network: ~180 deterministic nodes + retained roster
+      SEED: "42"
+      N_PRODUCERS: "60"
+      N_CONSUMERS: "90"
+      N_PROSUMERS: "30"
+      PUBLISH_ROSTER: "true"
     networks:
       - energy-network
     restart: unless-stopped
@@ -265,6 +271,41 @@ services:
       PRICING_URL: http://pricing-engine:8002
       FORECAST_URL: http://forecasting-service:8004
       BLOCKCHAIN_URL: http://blockchain-service:8003
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Demo Orchestrator — single demo-facing API (WS + REST + /demo control).
+  # The dashboard talks ONLY to this service; it fans out to the others.
+  demo-orchestrator:
+    build:
+      context: ./demo-orchestrator
+      dockerfile: Dockerfile
+    container_name: demo-orchestrator
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+      matching-engine:
+        condition: service_started
+      pricing-engine:
+        condition: service_started
+      blockchain-service:
+        condition: service_started
+    ports:
+      - "8010:8010"
+    environment:
+      KAFKA_BROKER: kafka:29092
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+      MATCHING_URL: http://matching-engine:8001
+      PRICING_URL: http://pricing-engine:8002
+      BLOCKCHAIN_URL: http://blockchain-service:8003
+      FORECAST_URL: http://forecasting-service:8004
+      ORCH_PORT: 8010
+      AUTO_TRADE: "true"
+      AUTO_SETTLE: "true"
     networks:
       - energy-network
     restart: unless-stopped

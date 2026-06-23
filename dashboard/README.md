@@ -1,0 +1,108 @@
+# VOLTGRID — P2P Energy Trading Dashboard
+
+A production-grade, enterprise energy-market dashboard: live supply/demand
+analytics, an animated energy-flow settlement network, market intelligence,
+predictive forecasting, and platform operations telemetry.
+
+Built with **React + TypeScript + Vite**, **Tailwind CSS**, **Recharts**,
+**Framer Motion**, and **Lucide** icons. Aesthetic reference: Bloomberg Terminal
+/ institutional trading software — dense, analytical, dark, operational.
+
+## Quick start
+
+```bash
+cd dashboard
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # typecheck + production build to dist/
+npm run preview  # serve the production build
+```
+
+## Architecture
+
+```
+dashboard/
+├── index.html                 # fonts (Inter / JetBrains Mono), root
+├── tailwind.config.js         # color tokens, fonts, keyframes
+├── vite.config.ts             # vendor chunk splitting
+└── src/
+    ├── App.tsx                # composition + progressive-reveal orchestration
+    ├── index.css              # foundation, .panel/.eyebrow, focus + reduced-motion
+    ├── theme/
+    │   └── tokens.ts          # JS-side color tokens + shared Recharts styling
+    ├── data/
+    │   ├── types.ts           # domain model
+    │   ├── generators.ts      # seeded PRNG + deterministic series builders
+    │   └── mockData.ts        # KPIs, series, leaderboards, insights, flow graph
+    ├── hooks/
+    │   ├── useCountUp.ts       # rAF count-up / value transitions
+    │   ├── useInterval.ts      # declarative setInterval
+    │   └── useLiveData.ts      # ticking KPIs + streaming trade feed + clock
+    ├── lib/
+    │   ├── format.ts           # number/delta/clock formatting, accent classes
+    │   └── motion.ts           # shared Framer variants (stagger, rise, feed)
+    └── components/
+        ├── layout/             # DashboardLayout, TopBar, Sidebar
+        ├── primitives/         # SectionHeader, ChartContainer, AnimatedMetric,
+        │                       #   StatusIndicator, Sparkline, Skeleton,
+        │                       #   DeltaBadge, RangeTabs
+        ├── kpi/                # KPIGrid, KPICard
+        ├── charts/             # SupplyDemand, GenerationMix, GridLoad
+        ├── flow/               # EnergyFlowVisualization (signature) + helpers
+        ├── market/             # ActivityFeed, TradingVolumeChart
+        ├── intelligence/       # Producer/Consumer leaderboards, MarketInsights
+        ├── forecasting/        # DemandForecast, PricePrediction, Historical
+        └── system/             # SystemHealthPanel
+```
+
+## Layout
+
+- **Top KPI bar** — six headline metrics (price, active trades, supply, demand,
+  grid utilization, settlement volume) with count-up values, deltas, sparklines.
+- **Main three-column grid**
+  - *Left* — Supply vs Demand, Generation Mix (stacked area), Grid Load.
+  - *Center* — **Energy Flow Network** (centerpiece), Trading Volume, live
+    Activity Feed.
+  - *Right* — Producer Leaderboard, Consumer Rankings, Market Insights.
+- **Forecasting & Intelligence** — Demand Forecast (confidence band), Price
+  Prediction (sentiment + volatility band), Historical Analysis.
+- **Platform & Grid Operations** — System Health (status indicators + traces).
+
+## Signature component — Energy Flow Network
+
+`components/flow/` renders Producers → Exchange → Consumers as an animated SVG
+network. HTML node chips are overlaid on an aspect-locked SVG so their
+normalized coordinates map exactly onto bezier links and traveling energy
+packets. Each packet (`FlowParticle`) owns its own Framer motion value and is
+sampled along pre-computed cubic-bezier control points; direction is encoded by
+color (emerald supply in, blue delivery out) and by a traveling pulse-dash.
+
+## Design tokens
+
+| Domain | Colors | Usage |
+|--------|--------|-------|
+| Foundation | charcoal `#0a0e14`, slate-900/850/800 | bg + layered surfaces |
+| Production | emerald `#10b981`, teal `#14b8a6` | supply, solar/wind, producers |
+| Consumption | blue `#3b82f6`, indigo `#6366f1` | demand, consumers |
+| Market | amber `#f59e0b`, gold `#d4a017` | trades, pricing, volume |
+| Forecasting | violet `#8b5cf6`, purple `#a855f7` | predictions, confidence bands |
+| Alerts | coral `#f43f5e`, red `#ef4444` | grid stress, anomalies |
+
+Tokens live in two mirrored places: Tailwind classes (`tailwind.config.js`) for
+markup and `theme/tokens.ts` for JS contexts (Recharts, SVG).
+
+## Motion & accessibility
+
+- Progressive reveal: KPI → main grid → forecasting → operations.
+- Count-up metrics, staggered card entrances, `AnimatePresence` trade feed,
+  continuous energy-flow particles, subtle hover elevation (no scaling).
+- `prefers-reduced-motion` collapses all motion (including flow particles and
+  pulse rings); global visible focus rings; `cursor-pointer` on interactives.
+
+## Data
+
+All data is **simulated** for demonstration. Base time-series are generated by a
+seeded PRNG (`data/generators.ts`) for deterministic renders; KPI ticks and the
+trade feed layer runtime randomness on top via `hooks/useLiveData.ts`. To wire
+to the real backend, replace the imports in `data/mockData.ts` and the tickers
+in `useLiveData.ts` with the API Gateway / WebSocket feeds.

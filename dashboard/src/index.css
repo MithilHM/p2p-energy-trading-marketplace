@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-charcoal text-slate-100 font-sans antialiased;
+    /* Subtle two-layer field: vertical depth gradient + faint grid lattice.
+       Deliberately low-contrast — operational, not decorative. */
+    background-color: #0a0e14;
+    background-image:
+      radial-gradient(
+        1200px 600px at 80% -10%,
+        rgba(16, 185, 129, 0.035),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 500px at 0% 0%,
+        rgba(59, 130, 246, 0.03),
+        transparent 55%
+      ),
+      linear-gradient(180deg, #0b1018 0%, #0a0e14 100%);
+    background-attachment: fixed;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Financial-terminal numerics: tabular figures everywhere by default. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* Interactive affordance — Tailwind preflight no longer sets this. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  /* Visible, consistent keyboard focus across the whole surface. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #0a0e14, 0 0 0 4px rgba(16, 185, 129, 0.7);
+    border-radius: 4px;
+  }
+
+  /* Respect reduced-motion: collapse all motion to near-instant.
+     The energy-flow particles, pulse rings and shimmer all key off this. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Panel: the core layered surface primitive. */
+  .panel {
+    @apply relative rounded-md border border-slate-700/60 bg-slate-850/70 backdrop-blur-[1px];
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  }
+
+  .panel-inset {
+    @apply rounded border border-slate-700/40 bg-slate-900/50;
+  }
+
+  /* Hairline divider tuned for dark surfaces. */
+  .hairline {
+    @apply border-slate-700/50;
+  }
+
+  /* Uppercase tracked label — card titles / column heads. */
+  .eyebrow {
+    @apply text-2xs font-semibold uppercase tracking-[0.14em] text-slate-400;
+  }
+}
+
+@layer utilities {
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+  }
+  .scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.35);
+    border-radius: 9999px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Used by skeleton shimmer overlay. */
+  .shimmer-mask {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(148, 163, 184, 0.08) 50%,
+      transparent 100%
+    );
+  }
+}
