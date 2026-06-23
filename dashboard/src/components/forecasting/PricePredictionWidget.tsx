@@ -90,10 +90,10 @@ export function PricePredictionWidget() {
           <YAxis {...chartAxis} width={44} domain={['dataMin - 4', 'dataMax + 4']} unit="" />
           <Tooltip {...tooltipStyle} />
           <Area dataKey="bandBase" stackId="b" stroke="none" fill="transparent" isAnimationActive={false} />
-          <Area dataKey="bandSpan" stackId="b" stroke="none" fill="url(#pp-band)" animationDuration={900} name="Vol band" unit=" $" />
+          <Area dataKey="bandSpan" stackId="b" stroke="none" fill="url(#pp-band)" animationDuration={900} name="Vol band" unit=" ₹" />
           <ReferenceLine x="now" stroke={color.border600} strokeDasharray="3 3" />
-          <Line type="monotone" dataKey="price" stroke={color.text300} strokeWidth={2} dot={false} connectNulls={false} animationDuration={1000} name="Spot" unit=" $/MWh" />
-          <Line type="monotone" dataKey="predicted" stroke={color.forecast} strokeWidth={2} strokeDasharray="5 4" dot={false} animationDuration={1100} name="Predicted" unit=" $/MWh" />
+          <Line type="monotone" dataKey="price" stroke={color.text300} strokeWidth={2} dot={false} connectNulls={false} animationDuration={1000} name="Spot" unit=" ₹/MWh" />
+          <Line type="monotone" dataKey="predicted" stroke={color.forecast} strokeWidth={2} strokeDasharray="5 4" dot={false} animationDuration={1100} name="Predicted" unit=" ₹/MWh" />
         </ComposedChart>
       </ResponsiveContainer>
     </ChartContainer>

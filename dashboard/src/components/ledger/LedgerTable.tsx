@@ -15,13 +15,14 @@ interface LedgerTableProps {
   totalEth: number
   count: number
   roster: RosterNode[]
+  onSelectRow: (row: LedgerRow) => void
 }
 
 function shortName(roster: RosterNode[], id: string) {
   return roster.find((n) => n.id === id)?.name ?? id
 }
 
-export function LedgerTable({ rows, totalEth, count, roster }: LedgerTableProps) {
+export function LedgerTable({ rows, totalEth, count, roster, onSelectRow }: LedgerTableProps) {
   return (
     <section className="panel flex h-full flex-col overflow-hidden">
       <header className="flex items-center justify-between border-b border-slate-700/50 px-4 py-3">
@@ -47,7 +48,8 @@ export function LedgerTable({ rows, totalEth, count, roster }: LedgerTableProps)
                 initial="hidden"
                 animate="show"
                 exit="exit"
-                className="flex items-center gap-2.5 rounded px-2 py-1.5 transition-colors hover:bg-slate-800/50"
+                onClick={() => onSelectRow(r)}
+                className="flex items-center gap-2.5 rounded px-2 py-1.5 transition-colors hover:bg-slate-800/50 cursor-pointer"
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-forecast/10">
                   <CheckCheck className="h-3.5 w-3.5 text-forecast" strokeWidth={2.25} />

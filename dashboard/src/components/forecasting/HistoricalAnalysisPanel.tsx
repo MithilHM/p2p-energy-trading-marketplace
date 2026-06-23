@@ -45,7 +45,7 @@ export function HistoricalAnalysisPanel() {
           )}
           {showPrice && (
             <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <span className="inline-block h-0.5 w-3.5 rounded bg-market" /> Price ($/MWh)
+              <span className="inline-block h-0.5 w-3.5 rounded bg-market" /> Price (₹/MWh)
             </span>
           )}
           <span className="ml-auto tabular text-slate-500">Trailing 12 months</span>
@@ -76,7 +76,7 @@ export function HistoricalAnalysisPanel() {
             </>
           )}
           {showPrice && (
-            <Line yAxisId="price" type="monotone" dataKey="price" stroke={color.market} strokeWidth={2} dot={{ r: 2, fill: color.market }} animationDuration={1100} name="Price" unit=" $/MWh" />
+            <Line yAxisId="price" type="monotone" dataKey="price" stroke={color.market} strokeWidth={2} dot={{ r: 2, fill: color.market }} animationDuration={1100} name="Price" unit=" ₹/MWh" />
           )}
         </ComposedChart>
       </ResponsiveContainer>

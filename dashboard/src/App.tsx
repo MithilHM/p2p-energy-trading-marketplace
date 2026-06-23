@@ -14,11 +14,14 @@ import { RunLanding } from './components/demo/RunLanding'
 import { StageRail } from './components/demo/StageRail'
 import { PriceTape } from './components/demo/PriceTape'
 import { NetworkMap } from './components/network/NetworkMap'
+import { NodeDetailsModal } from './components/network/NodeDetailsModal'
 import { SupplyDemandChart } from './components/charts/SupplyDemandChart'
 import { ActivityFeed } from './components/market/ActivityFeed'
-import { EscrowPanel } from './components/ledger/EscrowPanel'
 import { LedgerTable } from './components/ledger/LedgerTable'
+import { TransactionDetailsModal } from './components/ledger/TransactionDetailsModal'
+import { EdgeOnboarding } from './components/demo/EdgeOnboarding'
 import { sectionReveal } from './lib/motion'
+import type { LedgerRow, RosterNode } from './demo/events'
 
 /**
  * Demo-first guided simulator. A single RUN button drives a manual,
@@ -37,6 +40,53 @@ export default function App() {
   // wall clock for the top bar
   const [now, setNow] = useState(() => Date.now())
   useInterval(() => setNow(Date.now()), 1000)
+
+  // State to track selected ledger row for modal inspection
+  const [selectedLedger, setSelectedLedger] = useState<LedgerRow | null>(null)
+  
+  // State to track selected node for node details modal
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+
+  // Simple state-based routing
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
+  useEffect(() => {
+    const onPop = () => setCurrentPath(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  // Edge Device Integration State
+  const [edgeNode, setEdgeNode] = useState<RosterNode | null>(null)
+  const [edgeReading, setEdgeReading] = useState<{energy: number; role: string; ts: number} | null>(null)
+
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8000/ws/edge')
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.id) {
+          setEdgeNode({
+            id: data.id,
+            name: data.name || data.id,
+            kind: data.kind || 'solar',
+            side: data.role === 'producer' ? 'producer' : 'consumer',
+            x: 0.5,
+            y: 0.5,
+            area: data.area || 'RV College of Engineering',
+            lat: data.lat || 12.9237,
+            lng: data.lng || 77.4987,
+            capacityKw: data.energy || 10
+          })
+          setEdgeReading({
+            energy: data.energy,
+            role: data.role || 'producer',
+            ts: Date.now()
+          })
+        }
+      } catch (err) {}
+    }
+    return () => ws.close()
+  }, [])
 
   // keyboard navigation during the walkthrough
   useEffect(() => {
@@ -59,6 +109,18 @@ export default function App() {
     ? [spotlightEscrow.sellerId, spotlightEscrow.buyerId]
     : events.transfers.filter((t) => t.spotlight).flatMap((t) => [t.fromId, t.toId])
 
+  const augmentedRoster = edgeNode 
+    ? [...events.roster.filter(n => n.id !== edgeNode.id), edgeNode] 
+    : events.roster
+    
+  const augmentedReadings = edgeReading && edgeNode
+    ? { ...events.readings, [edgeNode.id]: edgeReading }
+    : events.readings
+
+  if (currentPath === '/setup') {
+    return <EdgeOnboarding />
+  }
+
   return (
     <DashboardLayout now={now} marketOpen={status !== 'idle'}>
       <AnimatePresence mode="wait">
@@ -74,17 +136,18 @@ export default function App() {
             transition={{ duration: 0.35 }}
             className="flex flex-col gap-3"
           >
-            <StageRail stageIndex={stageIndex} onJump={controls.goTo} />
+            {status !== 'done' && <StageRail stageIndex={stageIndex} onJump={controls.goTo} />}
 
             {/* Map is the hero (full height); supporting panels sit in a slim
                 rail beside it so the network is visible without scrolling. */}
-            <div className="flex h-[calc(100vh-150px)] min-h-[560px] gap-3">
+            <div className={`flex ${status === 'done' ? 'h-[calc(100vh-90px)]' : 'h-[calc(100vh-150px)]'} min-h-[560px] gap-3`}>
               <div className="min-w-0 flex-1">
                 <NetworkMap
-                  roster={events.roster}
+                  roster={augmentedRoster}
                   transfers={events.transfers}
                   heroIds={heroIds}
-                  readings={events.readings}
+                  readings={augmentedReadings}
+                  onNodeClick={setSelectedNodeId}
                 />
               </div>
 
@@ -103,35 +166,16 @@ export default function App() {
                   <ActivityFeed feed={events.feed} now={now} />
                 </div>
                 <div className="flex flex-col gap-3" data-spotlight="ledger">
-                  <EscrowPanel escrow={spotlightEscrow} roster={events.roster} />
                   <LedgerTable
                     rows={events.ledger}
                     totalEth={events.ledgerTotalEth}
                     count={events.ledgerCount}
                     roster={events.roster}
+                    onSelectRow={setSelectedLedger}
                   />
                 </div>
               </div>
             </div>
-
-            {status === 'done' && (
-              <motion.div
-                variants={sectionReveal}
-                initial="hidden"
-                animate="show"
-                className="flex items-center justify-center gap-3 py-4"
-              >
-                <span className="inline-flex items-center gap-1.5 text-2xs text-slate-500">
-                  <Sparkles className="h-3.5 w-3.5 text-production" /> Walkthrough complete · free-roam mode
-                </span>
-                <button
-                  onClick={controls.replay}
-                  className="inline-flex items-center gap-1.5 rounded border border-production/40 bg-production/10 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wide text-production transition-colors hover:bg-production/20"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Replay
-                </button>
-              </motion.div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -153,6 +197,22 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* Deep Blockchain Transaction details modal */}
+      <TransactionDetailsModal
+        row={selectedLedger}
+        roster={augmentedRoster}
+        onClose={() => setSelectedLedger(null)}
+      />
+
+      {/* Node Details Modal */}
+      <NodeDetailsModal
+        nodeId={selectedNodeId}
+        roster={augmentedRoster}
+        ledger={events.ledger}
+        readings={augmentedReadings}
+        onClose={() => setSelectedNodeId(null)}
+      />
     </DashboardLayout>
   )
 }

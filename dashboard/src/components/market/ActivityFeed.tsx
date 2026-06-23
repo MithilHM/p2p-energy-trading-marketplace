@@ -79,7 +79,7 @@ export function ActivityFeed({ feed, now }: ActivityFeedProps) {
                   <div className="tabular text-2xs font-semibold text-slate-100">
                     {t.qtyKwh.toFixed(0)} <span className="text-slate-500">kWh</span>
                   </div>
-                  <div className="tabular text-2xs text-market">${t.price.toFixed(2)}</div>
+                  <div className="tabular text-2xs text-market">₹{t.price.toFixed(2)}</div>
                 </div>
 
                 <div className="w-8 shrink-0 text-right tabular text-2xs text-slate-600">

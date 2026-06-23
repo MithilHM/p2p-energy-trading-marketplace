@@ -26,6 +26,7 @@ interface Props {
   transfers: ActiveTransfer[]
   heroIds: string[]
   readings: Record<string, { energy: number; role: string; ts: number }>
+  onNodeClick?: (nodeId: string) => void
 }
 
 function sideColor(side: ProjectedNode['side']): string {
@@ -34,7 +35,7 @@ function sideColor(side: ProjectedNode['side']): string {
   return color.production // producer + prosumer = supply
 }
 
-export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
+export function NetworkMap({ roster, transfers, heroIds, readings, onNodeClick }: Props) {
   const reduced = useReducedMotion() ?? false
   const model = useNetworkModel(roster, transfers, heroIds)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -47,6 +48,11 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
   const [hovered, setHovered] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
   const [, setTick] = useState(0) // force re-render so tooltip follows the map
+
+  const onNodeClickRef = useRef(onNodeClick)
+  useEffect(() => {
+    onNodeClickRef.current = onNodeClick
+  }, [onNodeClick])
 
   // ---- map init ----
   useEffect(() => {
@@ -77,6 +83,7 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
       if (!mapReadyRef.current) setOffline(true)
     })
     map.on('move', () => setTick((t) => (t + 1) % 1000000))
+    
     map.on('mousemove', (e) => {
       const p = projectedRef.current
       let best: string | null = null
@@ -88,9 +95,30 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
           best = id
         }
       }
+      if (best) {
+        map.getCanvas().style.cursor = 'pointer'
+      } else {
+        map.getCanvas().style.cursor = ''
+      }
       if (best !== hoveredRef.current) {
         hoveredRef.current = best
         setHovered(best)
+      }
+    })
+
+    map.on('click', (e) => {
+      const p = projectedRef.current
+      let best: string | null = null
+      let bestD = 16 * 16
+      for (const [id, pos] of p) {
+        const d = (pos.x - e.point.x) ** 2 + (pos.y - e.point.y) ** 2
+        if (d < bestD) {
+          bestD = d
+          best = id
+        }
+      }
+      if (best && onNodeClickRef.current) {
+        onNodeClickRef.current(best)
       }
     })
 
@@ -206,16 +234,14 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
         const en = pos.get(e.toId)
         if (!s || !en) continue
         const elapsed = now - e.start
-        const keep = e.spotlight
-          ? m.heroIds.has(e.fromId) && m.heroIds.has(e.toId)
-          : elapsed <= e.durationMs
+        const keep = e.spotlight || elapsed <= e.durationMs
         if (!keep) continue
         live.push(e)
 
-        const c = e.spotlight ? color.market : color.production
+        const c = color.market
         ctx.strokeStyle = c
-        ctx.globalAlpha = e.spotlight ? 0.55 : 0.25
-        ctx.lineWidth = e.spotlight ? 2.2 : 1.3
+        ctx.globalAlpha = 0.75
+        ctx.lineWidth = 2.2
         ctx.beginPath()
         const STEPS = 26
         for (let i = 0; i <= STEPS; i++) {
@@ -226,16 +252,15 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
         ctx.stroke()
 
         if (!reduced) {
-          const count = e.spotlight ? 4 : 2
-          const base = e.spotlight ? (elapsed / e.durationMs) % 1 : Math.min(1, elapsed / e.durationMs)
+          const count = 4
+          const base = (elapsed / e.durationMs) % 1
           for (let i = 0; i < count; i++) {
-            const t = e.spotlight ? (base + i / count) % 1 : Math.max(0, base - i * 0.12)
-            if (!e.spotlight && t <= 0) continue
+            const t = (base + i / count) % 1
             const pt = edgePoint(s, en, t)
-            ctx.globalAlpha = (e.spotlight ? 0.95 : 0.7) * Math.max(0.15, Math.sin(Math.PI * t))
+            ctx.globalAlpha = 0.95 * Math.max(0.15, Math.sin(Math.PI * t))
             ctx.fillStyle = c
             ctx.beginPath()
-            ctx.arc(pt.x, pt.y, e.spotlight ? 3 : 2, 0, Math.PI * 2)
+            ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2)
             ctx.fill()
           }
         }
@@ -247,7 +272,8 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
       for (const n of m.nodes) {
         const p = pos.get(n.id)
         if (!p) continue
-        const hero = m.heroIds.has(n.id)
+        const activeTransferNode = m.edges.some(e => e.fromId === n.id || e.toId === n.id)
+        const hero = m.heroIds.has(n.id) || activeTransferNode
         const isHub = n.side === 'hub'
         const c = sideColor(n.side)
         const r = isHub ? 6.5 : hero ? 6 : 1.8
@@ -303,10 +329,51 @@ export function NetworkMap({ roster, transfers, heroIds, readings }: Props) {
         <div ref={mapDivRef} className="absolute inset-0" />
         {offline && (
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 cursor-pointer"
             style={{
               background:
                 'radial-gradient(1000px 600px at 50% 80%, rgba(16,185,129,0.06), transparent 60%), linear-gradient(180deg,#0b1018,#0a0e14)',
+            }}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - rect.left
+              const y = e.clientY - rect.top
+              const p = projectedRef.current
+              let best: string | null = null
+              let bestD = 18 * 18
+              for (const [id, pos] of p) {
+                const d = (pos.x - x) ** 2 + (pos.y - y) ** 2
+                if (d < bestD) {
+                  bestD = d
+                  best = id
+                }
+              }
+              if (best !== hoveredRef.current) {
+                hoveredRef.current = best
+                setHovered(best)
+              }
+            }}
+            onMouseLeave={() => {
+              hoveredRef.current = null
+              setHovered(null)
+            }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - rect.left
+              const y = e.clientY - rect.top
+              const p = projectedRef.current
+              let best: string | null = null
+              let bestD = 18 * 18
+              for (const [id, pos] of p) {
+                const d = (pos.x - x) ** 2 + (pos.y - y) ** 2
+                if (d < bestD) {
+                  bestD = d
+                  best = id
+                }
+              }
+              if (best && onNodeClick) {
+                onNodeClick(best)
+              }
             }}
           />
         )}

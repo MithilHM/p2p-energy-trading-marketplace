@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 
 interface DashboardLayoutProps {
@@ -9,13 +8,12 @@ interface DashboardLayoutProps {
 }
 
 /**
- * App shell: fixed icon rail + sticky top bar wrapping a scrollable, max-width
+ * App shell: sticky top bar wrapping a scrollable, max-width
  * analytical canvas. The content area owns its own padded grid.
  */
 export function DashboardLayout({ now, marketOpen, children }: DashboardLayoutProps) {
   return (
-    <div className="flex min-h-screen w-full">
-      <Sidebar />
+    <div className="flex min-h-screen w-full bg-slate-950">
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar now={now} marketOpen={marketOpen} />
         <main className="flex-1 scroll-thin">

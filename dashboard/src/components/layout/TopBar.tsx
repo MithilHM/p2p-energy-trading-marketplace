@@ -10,10 +10,10 @@ interface TopBarProps {
 
 /** Tickers in the top bar — a compact macro strip of headline rates. */
 const ticker = [
-  { label: 'SPOT', value: '72.48', unit: '$/MWh', up: true },
-  { label: 'PEAK', value: '94.10', unit: '$/MWh', up: true },
-  { label: 'OFF-PEAK', value: '51.32', unit: '$/MWh', up: false },
-  { label: 'REC', value: '38.75', unit: '$/MWh', up: true },
+  { label: 'SPOT', value: '72.48', unit: '₹/MWh', up: true },
+  { label: 'PEAK', value: '94.10', unit: '₹/MWh', up: true },
+  { label: 'OFF-PEAK', value: '51.32', unit: '₹/MWh', up: false },
+  { label: 'REC', value: '38.75', unit: '₹/MWh', up: true },
   { label: 'CO₂', value: '0.21', unit: 't/MWh', up: false },
 ]
 
@@ -55,13 +55,6 @@ export function TopBar({ now, marketOpen }: TopBarProps) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2 md:flex-none">
-          {/* Search */}
-          <button className="hidden h-8 items-center gap-2 rounded border border-slate-700/70 bg-slate-900/60 px-2.5 text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200 lg:flex">
-            <Search className="h-3.5 w-3.5" />
-            <span className="text-2xs">Search markets</span>
-            <kbd className="rounded border border-slate-700 px-1 text-2xs text-slate-500">⌘K</kbd>
-          </button>
-
           {/* Market status */}
           <div className="flex items-center gap-2 rounded border border-slate-700/70 bg-slate-900/60 px-2.5 py-1.5">
             <StatusIndicator
@@ -72,28 +65,6 @@ export function TopBar({ now, marketOpen }: TopBarProps) {
               {formatClock(now)} UTC
             </span>
           </div>
-
-          {/* Alerts */}
-          <button className="relative flex h-8 w-8 items-center justify-center rounded border border-slate-700/70 bg-slate-900/60 text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200">
-            <Bell className="h-4 w-4" strokeWidth={1.9} />
-            <motion.span
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[9px] font-bold text-white"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 18, delay: 0.6 }}
-            >
-              3
-            </motion.span>
-          </button>
-
-          {/* Account */}
-          <button className="flex items-center gap-2 rounded border border-slate-700/70 bg-slate-900/60 py-1 pl-1 pr-2 transition-colors hover:border-slate-600">
-            <span className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-production/30 to-consumption/30 text-2xs font-bold text-slate-100">
-              ME
-            </span>
-            <span className="hidden text-2xs font-medium text-slate-300 sm:inline">Desk · NA-East</span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-          </button>
         </div>
       </div>
     </header>

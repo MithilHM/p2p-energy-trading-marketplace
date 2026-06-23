@@ -10,11 +10,11 @@ export function formatValue(value: number, datum: Pick<KPIDatum, 'format' | 'dec
   const { format, decimals } = datum
   switch (format) {
     case 'currency':
-      return `$${nf(decimals).format(value)}`
+      return `₹${nf(decimals).format(value)}`
     case 'percent':
       return `${nf(decimals).format(value)}`
     case 'compact':
-      return `$${nf(decimals).format(value)}`
+      return `₹${nf(decimals).format(value)}`
     case 'number':
     default:
       return nf(decimals).format(value)

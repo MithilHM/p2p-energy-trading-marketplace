@@ -13,10 +13,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from jose import jwt, JWTError
+import asyncio
+import json
+import aiomqtt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -130,6 +133,47 @@ async def gateway(service: str, path: str, request: Request, subject: str = Depe
     logger.info(f"[{subject}] {request.method} /{service}/{path}")
     return await _proxy(service, path, request)
 
+
+# ---- Edge Device WebSocket Bridge ----
+@app.websocket("/ws/edge")
+async def edge_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("Edge WebSocket client connected")
+    
+    # Run the MQTT subscriber task
+    async def listen_mqtt():
+        try:
+            # We connect to mosquitto on the docker network (or localhost if port mapped)
+            mqtt_host = os.getenv("MQTT_HOST", "mqtt")
+            mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
+            logger.info(f"Connecting to MQTT at {mqtt_host}:{mqtt_port}")
+            async with aiomqtt.Client(hostname=mqtt_host, port=mqtt_port) as client:
+                await client.subscribe("p2p/edge/telemetry")
+                async for message in client.messages:
+                    payload = message.payload.decode()
+                    logger.info(f"MQTT message received: {payload}")
+                    try:
+                        data = json.loads(payload)
+                        # Push to the connected frontend WebSocket
+                        await websocket.send_json(data)
+                    except json.JSONDecodeError:
+                        logger.error("Invalid JSON payload from MQTT")
+        except aiomqtt.MqttError as e:
+            logger.error(f"MQTT Error: {e}")
+            await websocket.close()
+        except Exception as e:
+            logger.error(f"Unexpected error in MQTT listener: {e}")
+            await websocket.close()
+
+    mqtt_task = asyncio.create_task(listen_mqtt())
+
+    try:
+        while True:
+            # Keep connection alive, wait for client disconnect
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("Edge WebSocket client disconnected")
+        mqtt_task.cancel()
 
 if __name__ == "__main__":
     import uvicorn
