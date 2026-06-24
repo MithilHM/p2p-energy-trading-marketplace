@@ -279,7 +279,7 @@ export function ProducerDashboard() {
                 <span className="text-[10px] font-bold tracking-wider uppercase font-mono">{toggling ? 'Sending...' : espData.loadStatus}</span>
               </button>
               <span className="text-xs text-slate-500 text-center font-mono">
-                {isOnline ? 'Relay on GPIO Pin 2' : 'Connect hardware to toggle'}
+                {isOnline ? 'Relay on GPIO Pin 26' : 'Connect hardware to toggle'}
               </span>
             </div>
 

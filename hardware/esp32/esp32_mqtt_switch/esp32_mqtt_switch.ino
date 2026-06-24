@@ -17,12 +17,12 @@
 
 // ==================== CONFIGURATION ====================
 // Replace with your local Wi-Fi credentials
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "Galaxy M14 5G 4851";
+const char* password = "wu4hqresjk7yfb7";
 
 // Replace with your laptop's local IP address (run ipconfig on Windows or ifconfig on Linux/macOS)
 // Note: Do NOT use "localhost" or "127.0.0.1" since this runs on the ESP32!
-const char* mqtt_server = "172.18.192.1"; 
+const char* mqtt_server = " 10.104.136.87"; 
 const int mqtt_port = 1883;
 
 // MQTT Topics
@@ -30,8 +30,8 @@ const char* topic_control = "p2p/edge/control";
 const char* topic_telemetry = "p2p/edge/telemetry";
 
 // Hardware Settings
-const int loadPin = 2; // GPIO 2 (onboard LED, change to your relay pin if needed)
-// =======================================================
+const int loadPin = 26; // GPIO 26 (relay pin)
+// ==========================================6=============
 
 WiFiClient espClient;
 PubSubClient client(espClient);
