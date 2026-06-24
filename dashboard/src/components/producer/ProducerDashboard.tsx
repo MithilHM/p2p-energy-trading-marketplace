@@ -207,18 +207,18 @@ export function ProducerDashboard() {
             <Zap className="h-5 w-5 text-amber-500" />
           </div>
           <div className="mt-4">
-            <span className="text-3xl font-bold text-slate-100">{data.energy_produced_today_kwh}</span>
+            <span className="text-3xl font-bold text-slate-100">{data.energy_produced_today_kwh.toFixed(3)}</span>
             <span className="ml-2 text-sm text-slate-400">kWh</span>
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-slate-400">Energy Sold</h3>
+            <h3 className="text-sm font-medium text-slate-400">Energy Consumed</h3>
             <Battery className="h-5 w-5 text-emerald-500" />
           </div>
           <div className="mt-4">
-            <span className="text-3xl font-bold text-slate-100">{data.energy_sold_kwh}</span>
+            <span className="text-3xl font-bold text-slate-100">{data.energy_sold_kwh.toFixed(3)}</span>
             <span className="ml-2 text-sm text-slate-400">kWh</span>
           </div>
         </div>
@@ -229,8 +229,8 @@ export function ProducerDashboard() {
             <DollarSign className="h-5 w-5 text-blue-500" />
           </div>
           <div className="mt-4">
-            <span className="text-3xl font-bold text-slate-100">${data.money_earned_dollars.toFixed(2)}</span>
-            <span className="ml-2 text-sm text-slate-400">USD</span>
+            <span className="text-3xl font-bold text-slate-100">₹{(data.money_earned_dollars * 83).toFixed(2)}</span>
+            <span className="ml-2 text-sm text-slate-400">INR</span>
           </div>
         </div>
       </div>
@@ -321,7 +321,7 @@ export function ProducerDashboard() {
                   <span>Meter Energy</span>
                 </div>
                 <div className="text-lg font-bold text-slate-200 font-mono truncate" title={espData.energy.toFixed(6)}>
-                  {isOnline ? `${espData.energy.toFixed(4)} kWh` : '-- kWh'}
+                  {isOnline ? `${espData.energy.toFixed(3)} kWh` : '-- kWh'}
                 </div>
               </div>
             </div>
