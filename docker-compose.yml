@@ -90,8 +90,7 @@ services:
     command: >
       sh -c "npm install &&
              npx hardhat node --hostname 0.0.0.0 &
-             until nc -z localhost 8545; do echo 'waiting for node...'; sleep 1; done &&
-             sleep 2 &&
+             sleep 5 &&
              npx hardhat run scripts/deploy.js --network localhost &&
              wait"
     healthcheck:
