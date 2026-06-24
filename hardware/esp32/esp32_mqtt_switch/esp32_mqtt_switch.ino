@@ -22,7 +22,7 @@ const char* password = "wu4hqresjk7yfb7";
 
 // Replace with your laptop's local IP address (run ipconfig on Windows or ifconfig on Linux/macOS)
 // Note: Do NOT use "localhost" or "127.0.0.1" since this runs on the ESP32!
-const char* mqtt_server = " 10.104.136.87"; 
+const char* mqtt_server = "10.104.136.87"; 
 const int mqtt_port = 1883;
 
 // MQTT Topics
