@@ -22,6 +22,7 @@ import { TransactionDetailsModal } from './components/ledger/TransactionDetailsM
 import { EdgeOnboarding } from './components/demo/EdgeOnboarding'
 import { sectionReveal } from './lib/motion'
 import type { LedgerRow, RosterNode } from './demo/events'
+import { ProducerDashboard } from './components/producer/ProducerDashboard'
 
 /**
  * Demo-first guided simulator. A single RUN button drives a manual,
@@ -119,6 +120,14 @@ export default function App() {
 
   if (currentPath === '/setup') {
     return <EdgeOnboarding />
+  }
+
+  if (currentPath === '/producer/dashboard') {
+    return (
+      <DashboardLayout now={now} marketOpen={status !== 'idle'}>
+        <ProducerDashboard />
+      </DashboardLayout>
+    )
   }
 
   return (
