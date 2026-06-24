@@ -135,55 +135,6 @@ async def _proxy(service: str, path: str, request: Request):
     return JSONResponse(status_code=resp.status_code, content={"raw": resp.text})
 
 
-# ---- Routed endpoints (all require a valid JWT) ----
-@app.get("/producer/dashboard")
-async def get_producer_dashboard(subject: str = Depends(jwt_validation)):
-    money_earned = 0.0
-    energy_sold = 0.0
-    energy_produced_today = 150.5  # In a full system, this would come from InfluxDB
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            base_url = SERVICE_MAP.get("orders")
-            if base_url:
-                resp = await client.get(f"{base_url}/matches")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    trades = data.get("trades", [])
-                    # For demo purposes, we tally trades for the subject.
-                    # The demo 'producer' user will act as a catch-all if no trades match their exact name.
-                    for t in trades:
-                        seller = t.get("seller")
-                        if seller == subject or (subject == "producer" and str(seller).startswith("P")):
-                            money_earned += (t.get("units", 0) * t.get("price", 0))
-                            energy_sold += t.get("units", 0)
-        except Exception as e:
-            logger.error(f"Error fetching matches for dashboard: {e}")
-
-    connection_steps = [
-        "1. Install an MQTT client (e.g., Mosquitto or Paho MQTT).",
-        "2. Connect to the broker at 'mqtt:1883' (or 'localhost:1883' if running outside Docker).",
-        "3. To publish production data, send a JSON payload to topic 'energy/production'.",
-        "   Example payload: {\"meterId\": \"P001\", \"role\": \"producer\", \"energy\": 12.5, \"timestamp\": \"2026-06-24T12:00:00Z\"}",
-        "4. (Optional) Subscribe to 'energy/roster' (retained) to get the full list of P2P network nodes."
-    ]
-
-    return {
-        "producer_id": subject,
-        "energy_produced_today_kwh": energy_produced_today,
-        "energy_sold_kwh": round(energy_sold, 2),
-        "money_earned_dollars": round(money_earned, 2),
-        "connection_steps": connection_steps
-    }
-
-@app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def gateway(service: str, path: str, request: Request, subject: str = Depends(jwt_validation)):
-    if service not in SERVICE_MAP:
-        raise HTTPException(status_code=404, detail=f"No route for /{service}")
-    logger.info(f"[{subject}] {request.method} /{service}/{path}")
-    return await _proxy(service, path, request)
-
-
 # ---- Edge Device Control Endpoint ----
 @app.post("/edge/control")
 async def control_edge(request: Request, subject: str = Depends(jwt_validation)):
@@ -208,6 +159,40 @@ async def control_edge(request: Request, subject: str = Depends(jwt_validation))
     except Exception as e:
         logger.error(f"Failed to publish control command: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to connect to MQTT broker: {e}")
+
+
+# ---- Routed endpoints (all require a valid JWT) ----
+@app.get("/producer/dashboard")
+async def get_producer_dashboard(subject: str = Depends(jwt_validation)):
+    # Setting values to be very small as requested: 0.005 kWh produced, 0.003 kWh sold/consumed
+    energy_produced_today = 0.005
+    energy_sold = 0.003
+    # Price is static at 23 INR. Multiply by 83 in frontend, so we return 23 / 83 here.
+    money_earned_dollars = 23.0 / 83.0
+
+    connection_steps = [
+        "1. Install an MQTT client (e.g., Mosquitto or Paho MQTT).",
+        "2. Connect to the broker at 'mqtt:1883' (or 'localhost:1883' if running outside Docker).",
+        "3. To publish production data, send a JSON payload to topic 'energy/production'.",
+        "   Example payload: {\"meterId\": \"P001\", \"role\": \"producer\", \"energy\": 12.5, \"timestamp\": \"2026-06-24T12:00:00Z\"}",
+        "4. (Optional) Subscribe to 'energy/roster' (retained) to get the full list of P2P network nodes."
+    ]
+
+    return {
+        "producer_id": subject,
+        "energy_produced_today_kwh": energy_produced_today,
+        "energy_sold_kwh": energy_sold,
+        "money_earned_dollars": money_earned_dollars,
+        "connection_steps": connection_steps
+    }
+
+@app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def gateway(service: str, path: str, request: Request, subject: str = Depends(jwt_validation)):
+    if service not in SERVICE_MAP:
+        raise HTTPException(status_code=404, detail=f"No route for /{service}")
+    logger.info(f"[{subject}] {request.method} /{service}/{path}")
+    return await _proxy(service, path, request)
+
 
 
 # ---- Edge Device WebSocket Bridge ----
