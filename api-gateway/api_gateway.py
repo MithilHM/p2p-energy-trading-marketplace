@@ -148,12 +148,12 @@ async def control_edge(request: Request, subject: str = Depends(jwt_validation))
     if not status or status.lower() not in ("on", "off"):
         raise HTTPException(status_code=400, detail="Status must be 'on' or 'off'")
 
-    mqtt_host = os.getenv("MQTT_HOST", "mqtt")
+    mqtt_host = os.getenv("MQTT_HOST", "127.0.0.1")
     mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
 
     try:
         async with aiomqtt.Client(hostname=mqtt_host, port=mqtt_port) as client:
-            await client.publish("p2p/edge/control", payload=json.dumps({"status": status.lower()}))
+            await client.publish("p2p/edge/control", payload=status.lower())
         logger.info(f"[{subject}] Control command '{status}' sent to edge device.")
         return {"status": "success", "message": f"Control command '{status}' sent to edge device."}
     except Exception as e:
@@ -205,7 +205,7 @@ async def edge_websocket_endpoint(websocket: WebSocket):
     async def listen_mqtt():
         try:
             # We connect to mosquitto on the docker network (or localhost if port mapped)
-            mqtt_host = os.getenv("MQTT_HOST", "mqtt")
+            mqtt_host = os.getenv("MQTT_HOST", "127.0.0.1")
             mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
             logger.info(f"Connecting to MQTT at {mqtt_host}:{mqtt_port}")
             async with aiomqtt.Client(hostname=mqtt_host, port=mqtt_port) as client:

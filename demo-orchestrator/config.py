@@ -19,6 +19,17 @@ BASE_PRICE = 10.0
 PRICE_MIN = 5.0
 PRICE_MAX = 20.0
 
+# ---- Central-grid baseline (the thing P2P is compared against) ----
+# These tariffs sit deliberately just OUTSIDE the P2P clearing band
+# [PRICE_MIN, PRICE_MAX], so a peer trade always beats the grid by construction:
+#   * a consumer buying P2P (<= PRICE_MAX) pays less than grid retail, and
+#   * a producer selling P2P (>= PRICE_MIN) earns more than the feed-in tariff.
+# GRID_LOSS_FACTOR models transmission/distribution losses a local P2P transfer
+# avoids (energy-exchanged advantage). All in ₹/kWh-equivalent units.
+GRID_RETAIL_TARIFF = float(os.getenv("GRID_RETAIL_TARIFF", "22.0"))   # consumer pays the grid
+GRID_FEEDIN_TARIFF = float(os.getenv("GRID_FEEDIN_TARIFF", "3.0"))    # producer sells to the grid
+GRID_LOSS_FACTOR = float(os.getenv("GRID_LOSS_FACTOR", "0.07"))       # line losses P2P avoids
+
 # wei per energy unit when escrowing on-chain. Tiny so account #0's balance
 # never runs dry across a long demo: amount = units * PRICE_PER_UNIT_WEI.
 PRICE_PER_UNIT_WEI = 10 ** 12  # 1e12 wei = 0.000001 ETH/unit

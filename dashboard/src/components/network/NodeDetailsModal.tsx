@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sun, Wind, Battery, Home, Factory, Building, Zap, Wallet, Key, ArrowUpRight, ArrowDownLeft, MapPin, Coins } from 'lucide-react'
+import { X, Sun, Wind, Battery, Home, Factory, Building, Zap, Key, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import type { LedgerRow, RosterNode } from '../../demo/events'
 
 interface Props {

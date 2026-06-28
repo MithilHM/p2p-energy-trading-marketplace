@@ -87,6 +87,19 @@ export type DemoEvent =
       priceUsd: number
       spotlight?: boolean
     }
+  | {
+      type: 'gridcompare'
+      ts: number
+      energyTradedKwh: number
+      gridLossAvoidedKwh: number
+      consumerSavings: number
+      producerEarnings: number
+      communityBenefit: number
+      gridImportCost: number
+      savingsPct: number
+      retailTariff: number
+      feedInTariff: number
+    }
 
 // ---- Accumulated snapshot the UI reads ----
 
@@ -127,6 +140,19 @@ export interface ActiveTransfer {
   spotlight: boolean
 }
 
+/** Running P2P-vs-central-grid comparison (always favourable to P2P). */
+export interface GridComparison {
+  energyTradedKwh: number
+  gridLossAvoidedKwh: number
+  consumerSavings: number
+  producerEarnings: number
+  communityBenefit: number
+  gridImportCost: number
+  savingsPct: number
+  retailTariff: number
+  feedInTariff: number
+}
+
 export interface DemoEventState {
   roster: RosterNode[]
   /** latest reading per node id */
@@ -148,6 +174,7 @@ export interface DemoEventState {
   ledger: LedgerRow[]
   ledgerTotalEth: number
   ledgerCount: number
+  grid: GridComparison
   lastEventAt: number
   counts: { readings: number; matches: number; transfers: number; settlements: number }
 }
@@ -171,6 +198,17 @@ export function emptyState(): DemoEventState {
     ledger: [],
     ledgerTotalEth: 0,
     ledgerCount: 0,
+    grid: {
+      energyTradedKwh: 0,
+      gridLossAvoidedKwh: 0,
+      consumerSavings: 0,
+      producerEarnings: 0,
+      communityBenefit: 0,
+      gridImportCost: 0,
+      savingsPct: 0,
+      retailTariff: 22,
+      feedInTariff: 3,
+    },
     lastEventAt: 0,
     counts: { readings: 0, matches: 0, transfers: 0, settlements: 0 },
   }

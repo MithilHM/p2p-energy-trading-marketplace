@@ -23,6 +23,10 @@ def reset():
     STATE.ledger = []
     STATE.ledger_total_eth = 0.0
     STATE.ledger_count = 0
+    STATE.energy_traded_kwh = 0.0
+    STATE.grid_import_cost = 0.0
+    STATE.consumer_savings = 0.0
+    STATE.producer_earnings = 0.0
     STATE.emitted_trades = set()
     STATE.spotlight = None
     STATE.paused = False

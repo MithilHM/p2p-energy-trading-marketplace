@@ -81,12 +81,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   msg.toLowerCase();
   if (msg.indexOf("on") >= 0) {
     loadStatus = true;
-    digitalWrite(loadPin, HIGH);
+    digitalWrite(loadPin, HIGH); // Active-High: HIGH = ON
     Serial.println(">>> LOAD SWITCH: ON <<<");
     sendTelemetry(); // Publish updated state immediately
   } else if (msg.indexOf("off") >= 0) {
     loadStatus = false;
-    digitalWrite(loadPin, LOW);
+    digitalWrite(loadPin, LOW); // Active-High: LOW = OFF
     Serial.println(">>> LOAD SWITCH: OFF <<<");
     sendTelemetry(); // Publish updated state immediately
   }
@@ -95,6 +95,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("Wi-Fi disconnected. Reconnecting...");
+      WiFi.disconnect();
+      WiFi.begin(ssid, password);
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+      }
+      Serial.println("\nWi-Fi reconnected!");
+    }
+
     Serial.print("Attempting MQTT connection to ");
     Serial.print(mqtt_server);
     Serial.print("...");
@@ -166,8 +177,8 @@ void sendTelemetry() {
 
 void setup() {
   Serial.begin(9600);
+  digitalWrite(loadPin, LOW); // Start OFF (LOW for active-high)
   pinMode(loadPin, OUTPUT);
-  digitalWrite(loadPin, LOW); // Start with load off
   
   setup_wifi();
   

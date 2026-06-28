@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { RotateCcw, Sparkles } from 'lucide-react'
+
 
 import { DashboardLayout } from './components/layout/DashboardLayout'
 import { useInterval } from './hooks/useInterval'
@@ -20,7 +20,9 @@ import { ActivityFeed } from './components/market/ActivityFeed'
 import { LedgerTable } from './components/ledger/LedgerTable'
 import { TransactionDetailsModal } from './components/ledger/TransactionDetailsModal'
 import { EdgeOnboarding } from './components/demo/EdgeOnboarding'
-import { sectionReveal } from './lib/motion'
+import { MarketIntelligencePanel } from './components/intelligence/MarketIntelligencePanel'
+import { GridComparisonPanel } from './components/intelligence/GridComparisonPanel'
+
 import type { LedgerRow, RosterNode } from './demo/events'
 import { ProducerDashboard } from './components/producer/ProducerDashboard'
 
@@ -33,7 +35,7 @@ import { ProducerDashboard } from './components/producer/ProducerDashboard'
  */
 export default function App() {
   const demo = useDemoOrchestrator()
-  const { status, conn, stageIndex, total, spotlightTarget, ready, dialog, events, controls } = demo
+  const { status, conn, stageIndex, total, spotlightTarget, ready, dialog, events, voice, controls } = demo
 
   const inGuide = status === 'running' || status === 'paused'
   const rect = useSpotlightRect(inGuide ? spotlightTarget : null)
@@ -124,14 +126,14 @@ export default function App() {
 
   if (currentPath === '/producer/dashboard') {
     return (
-      <DashboardLayout now={now} marketOpen={status !== 'idle'}>
+      <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice}>
         <ProducerDashboard />
       </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout now={now} marketOpen={status !== 'idle'}>
+    <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice}>
       <AnimatePresence mode="wait">
         {status === 'idle' ? (
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
@@ -171,8 +173,14 @@ export default function App() {
                     source={events.marketSource}
                   />
                 </div>
+                <div data-spotlight="gridcompare">
+                  <GridComparisonPanel grid={events.grid} />
+                </div>
                 <div className="min-h-[200px]" data-spotlight="orderbook">
                   <ActivityFeed feed={events.feed} now={now} />
+                </div>
+                <div data-spotlight="intelligence">
+                  <MarketIntelligencePanel events={events} />
                 </div>
                 <div className="flex flex-col gap-3" data-spotlight="ledger">
                   <LedgerTable

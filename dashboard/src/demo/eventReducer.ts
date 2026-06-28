@@ -153,6 +153,22 @@ export function reduceEvent(state: DemoEventState, e: DemoEvent): DemoEventState
       }
     }
 
+    case 'gridcompare':
+      return {
+        ...base,
+        grid: {
+          energyTradedKwh: e.energyTradedKwh,
+          gridLossAvoidedKwh: e.gridLossAvoidedKwh,
+          consumerSavings: e.consumerSavings,
+          producerEarnings: e.producerEarnings,
+          communityBenefit: e.communityBenefit,
+          gridImportCost: e.gridImportCost,
+          savingsPct: e.savingsPct,
+          retailTariff: e.retailTariff,
+          feedInTariff: e.feedInTariff,
+        },
+      }
+
     default:
       return base
   }

@@ -11,7 +11,10 @@ import logging
 
 import httpx
 
-from config import BLOCKCHAIN_URL, HARDHAT_ADDRESSES, PRICE_PER_UNIT_WEI, AUTO_SETTLE, now_ms
+from config import (
+    BLOCKCHAIN_URL, HARDHAT_ADDRESSES, PRICE_PER_UNIT_WEI, AUTO_SETTLE,
+    GRID_RETAIL_TARIFF, GRID_FEEDIN_TARIFF, GRID_LOSS_FACTOR, now_ms,
+)
 from event_bus import bus
 from state import STATE
 
@@ -46,6 +49,38 @@ def _match_event(trade: dict, spotlight: bool) -> dict:
     }
 
 
+def gridcompare_event() -> dict:
+    """Build a P2P-vs-central-grid comparison event from the current running
+    totals. Savings/earnings are always positive because the grid tariffs sit
+    outside the P2P clearing band (see config)."""
+    grid_cost = STATE.grid_import_cost
+    savings_pct = round(STATE.consumer_savings / grid_cost * 100, 1) if grid_cost else 0.0
+    return {
+        "type": "gridcompare", "ts": now_ms(),
+        "energyTradedKwh": round(STATE.energy_traded_kwh, 2),
+        "gridLossAvoidedKwh": round(STATE.energy_traded_kwh * GRID_LOSS_FACTOR, 2),
+        "consumerSavings": round(STATE.consumer_savings, 2),
+        "producerEarnings": round(STATE.producer_earnings, 2),
+        "communityBenefit": round(STATE.consumer_savings + STATE.producer_earnings, 2),
+        "gridImportCost": round(grid_cost, 2),
+        "savingsPct": savings_pct,
+        "retailTariff": GRID_RETAIL_TARIFF,
+        "feedInTariff": GRID_FEEDIN_TARIFF,
+    }
+
+
+def _accrue_grid_savings(trade: dict):
+    """Fold one settled trade into the P2P-vs-grid totals and emit an update."""
+    units = float(trade["units"])
+    price = float(trade["price"])
+    p2p_value = units * price
+    STATE.energy_traded_kwh += units
+    STATE.grid_import_cost += units * GRID_RETAIL_TARIFF
+    STATE.consumer_savings += units * GRID_RETAIL_TARIFF - p2p_value
+    STATE.producer_earnings += p2p_value - units * GRID_FEEDIN_TARIFF
+    bus.publish(gridcompare_event())
+
+
 def _record_ledger(trade: dict, tx_hash: str, amount_eth: float, spotlight: bool):
     row = {
         "type": "ledger", "ts": now_ms(), "tradeId": trade["trade_id"], "txHash": tx_hash,
@@ -57,6 +92,7 @@ def _record_ledger(trade: dict, tx_hash: str, amount_eth: float, spotlight: bool
     STATE.ledger_total_eth = round(STATE.ledger_total_eth + amount_eth, 8)
     STATE.ledger_count += 1
     bus.publish(row)
+    _accrue_grid_savings(trade)
 
 
 def emit_match(trade: dict, spotlight: bool, queue_settle: bool = True):

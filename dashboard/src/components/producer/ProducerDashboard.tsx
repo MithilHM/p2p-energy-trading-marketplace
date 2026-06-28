@@ -26,7 +26,7 @@ export function ProducerDashboard() {
     lastSeen: 0,
   })
   const [toggling, setToggling] = useState(false)
-  const [wsStatus, setWsStatus] = useState('connecting')
+  // const [wsStatus, setWsStatus] = useState('connecting')
 
   // Calculate online status (heartbeat check: active if seen in last 10 seconds)
   const [isOnline, setIsOnline] = useState(false)
@@ -48,11 +48,11 @@ export function ProducerDashboard() {
     let reconnectTimeout: any
 
     function connect() {
-      setWsStatus('connecting')
+      // setWsStatus('connecting')
       ws = new WebSocket('ws://localhost:8000/ws/edge')
 
       ws.onopen = () => {
-        setWsStatus('connected')
+        // setWsStatus('connected')
       }
 
       ws.onmessage = (e) => {
@@ -75,7 +75,7 @@ export function ProducerDashboard() {
       }
 
       ws.onclose = () => {
-        setWsStatus('disconnected')
+        // setWsStatus('disconnected')
         reconnectTimeout = setTimeout(connect, 3000)
       }
 

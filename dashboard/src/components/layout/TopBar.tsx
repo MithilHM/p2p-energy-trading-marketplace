@@ -1,11 +1,12 @@
-import { Bell, ChevronDown, Search, Zap } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Volume2, VolumeX, Zap } from 'lucide-react'
 import { StatusIndicator } from '../primitives/StatusIndicator'
 import { formatClock } from '../../lib/format'
+import type { VoiceControls } from '../../demo/useVoiceAlerts'
 
 interface TopBarProps {
   now: number
   marketOpen: boolean
+  voice?: VoiceControls
 }
 
 /** Tickers in the top bar — a compact macro strip of headline rates. */
@@ -17,7 +18,7 @@ const ticker = [
   { label: 'CO₂', value: '0.21', unit: 't/MWh', up: false },
 ]
 
-export function TopBar({ now, marketOpen }: TopBarProps) {
+export function TopBar({ now, marketOpen, voice }: TopBarProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-charcoal/85 backdrop-blur-md">
       <div className="flex h-14 items-center gap-4 px-4 sm:px-5">
@@ -55,6 +56,28 @@ export function TopBar({ now, marketOpen }: TopBarProps) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2 md:flex-none">
+          {/* Voice alerts toggle */}
+          {voice?.supported && (
+            <button
+              type="button"
+              onClick={voice.toggle}
+              aria-pressed={voice.enabled}
+              title={voice.enabled ? 'Mute voice alerts' : 'Enable voice alerts'}
+              aria-label={voice.enabled ? 'Mute voice alerts' : 'Enable voice alerts'}
+              className={`flex h-8 w-8 items-center justify-center rounded border transition-colors ${
+                voice.enabled
+                  ? 'border-production/40 bg-production/15 text-production hover:bg-production/25'
+                  : 'border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {voice.enabled ? (
+                <Volume2 className="h-4 w-4" strokeWidth={2} />
+              ) : (
+                <VolumeX className="h-4 w-4" strokeWidth={2} />
+              )}
+            </button>
+          )}
+
           {/* Market status */}
           <div className="flex items-center gap-2 rounded border border-slate-700/70 bg-slate-900/60 px-2.5 py-1.5">
             <StatusIndicator

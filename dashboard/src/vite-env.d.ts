@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_ORCHESTRATOR_URL?: string
+  readonly VITE_GATEWAY_URL?: string
 }
 
 interface ImportMeta {

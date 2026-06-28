@@ -7,7 +7,7 @@ import os
 from math import sin, pi
 
 # ---- Virtual P2P network generation ----
-# The simulator now models a large peer-to-peer network (~180 nodes) instead of
+# The simulator now models a large peer-to-peer network (~450 nodes) instead of
 # a handful of meters. Nodes are generated deterministically from SEED so every
 # run produces an identical roster — essential for a scripted, repeatable demo.
 # The roster is published as a RETAINED MQTT message on `energy/roster` so the
@@ -255,9 +255,9 @@ if __name__ == "__main__":
     mqtt_host = os.getenv("MQTT_HOST", "mqtt")
     mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
     seed = int(os.getenv("SEED", "42"))
-    n_producers = int(os.getenv("N_PRODUCERS", "60"))
-    n_consumers = int(os.getenv("N_CONSUMERS", "90"))
-    n_prosumers = int(os.getenv("N_PROSUMERS", "30"))
+    n_producers = int(os.getenv("N_PRODUCERS", "150"))
+    n_consumers = int(os.getenv("N_CONSUMERS", "225"))
+    n_prosumers = int(os.getenv("N_PROSUMERS", "75"))
     publish_roster = os.getenv("PUBLISH_ROSTER", "true").lower() == "true"
     interval = int(os.getenv("INTERVAL", "10"))
 

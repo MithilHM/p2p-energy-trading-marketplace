@@ -113,11 +113,11 @@ services:
     environment:
       MQTT_HOST: mqtt
       MQTT_PORT: 1883
-      # Virtual P2P network: ~180 deterministic nodes + retained roster
+      # Virtual P2P network: ~450 deterministic nodes + retained roster
       SEED: "42"
-      N_PRODUCERS: "60"
-      N_CONSUMERS: "90"
-      N_PROSUMERS: "30"
+      N_PRODUCERS: "150"
+      N_CONSUMERS: "225"
+      N_PROSUMERS: "75"
       PUBLISH_ROSTER: "true"
     networks:
       - energy-network

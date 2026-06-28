@@ -13,6 +13,11 @@ class State:
         self.ledger = []                  # list of ledger row dicts (newest first)
         self.ledger_total_eth = 0.0
         self.ledger_count = 0
+        # P2P-vs-central-grid running totals (settled trades only)
+        self.energy_traded_kwh = 0.0      # total kWh exchanged peer-to-peer
+        self.grid_import_cost = 0.0       # what buyers would have paid the grid
+        self.consumer_savings = 0.0       # grid cost - actual P2P spend
+        self.producer_earnings = 0.0      # P2P revenue - grid feed-in revenue
         # trade ids already surfaced as a match (dedupe between the spotlight
         # handler and the Kafka `trades` consumer)
         self.emitted_trades = set()

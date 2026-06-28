@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Blocks, ShieldCheck, Key, MapPin, Clock, ArrowRight, Layers, Coins } from 'lucide-react'
+import { X, Blocks, ShieldCheck, Key, MapPin, Clock, ArrowRight, Layers } from 'lucide-react'
 import type { LedgerRow, RosterNode } from '../../demo/events'
 import { formatClock } from '../../lib/format'
 

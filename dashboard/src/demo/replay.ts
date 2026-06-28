@@ -11,6 +11,13 @@ import { makeBengaluruRoster } from './bengaluru'
 import type { CueName } from './transport'
 import type { DemoEvent } from './events'
 
+// Central-grid baseline tariffs — kept in sync with the orchestrator's config so
+// the offline replay reports the same P2P-vs-grid advantage. Both sit outside
+// the clearing band [5, 20], so P2P always wins.
+const RETAIL_TARIFF = 22
+const FEEDIN_TARIFF = 3
+const GRID_LOSS = 0.07
+
 function solarLevel(hour: number) {
   const x = (hour - 13) / 5
   return Math.max(0, Math.exp(-x * x))
@@ -44,6 +51,33 @@ export function createReplay({ seed = 42, emit, now }: ReplayOpts) {
   let lastPrice = 10
   let paused = false
   let started = false
+
+  // P2P-vs-grid running totals
+  let gridEnergy = 0
+  let gridImportCost = 0
+  let gridSavings = 0
+  let gridEarnings = 0
+
+  function emitGridCompare(units: number, price: number) {
+    const value = units * price
+    gridEnergy += units
+    gridImportCost += units * RETAIL_TARIFF
+    gridSavings += units * RETAIL_TARIFF - value
+    gridEarnings += value - units * FEEDIN_TARIFF
+    emit({
+      type: 'gridcompare',
+      ts: now(),
+      energyTradedKwh: Math.round(gridEnergy * 100) / 100,
+      gridLossAvoidedKwh: Math.round(gridEnergy * GRID_LOSS * 100) / 100,
+      consumerSavings: Math.round(gridSavings * 100) / 100,
+      producerEarnings: Math.round(gridEarnings * 100) / 100,
+      communityBenefit: Math.round((gridSavings + gridEarnings) * 100) / 100,
+      gridImportCost: Math.round(gridImportCost * 100) / 100,
+      savingsPct: gridImportCost ? Math.round((gridSavings / gridImportCost) * 1000) / 10 : 0,
+      retailTariff: RETAIL_TARIFF,
+      feedInTariff: FEEDIN_TARIFF,
+    })
+  }
 
   const after = (ms: number, fn: () => void) => {
     timeouts.push(setTimeout(fn, ms))
@@ -173,6 +207,7 @@ export function createReplay({ seed = 42, emit, now }: ReplayOpts) {
         priceUsd,
         spotlight,
       })
+      emitGridCompare(units, priceUsd)
     })
   }
 
@@ -250,6 +285,7 @@ export function createReplay({ seed = 42, emit, now }: ReplayOpts) {
         priceUsd: price,
         spotlight: true,
       })
+      emitGridCompare(units, price)
     })
   }
 
@@ -289,6 +325,10 @@ export function createReplay({ seed = 42, emit, now }: ReplayOpts) {
     started = false
     tick = 0
     spotlightPair = null
+    gridEnergy = 0
+    gridImportCost = 0
+    gridSavings = 0
+    gridEarnings = 0
   }
 
   function cue(name: CueName) {

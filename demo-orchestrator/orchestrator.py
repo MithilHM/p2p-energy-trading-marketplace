@@ -21,7 +21,7 @@ from auto_trader import auto_trader_task
 from config import FORECAST_URL, MATCHING_URL, now_ms
 from event_bus import bus
 from market_aggregator import market_aggregator_task
-from settlement import settlement_worker
+from settlement import settlement_worker, gridcompare_event
 from state import STATE
 
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +66,14 @@ def snapshot():
         "ledger": STATE.ledger,
         "ledger_total_eth": STATE.ledger_total_eth,
         "ledger_count": STATE.ledger_count,
+        "grid_compare": gridcompare_event(),
     }
+
+
+@app.get("/grid-compare")
+def grid_compare():
+    """P2P marketplace vs central-grid baseline (energy + money)."""
+    return gridcompare_event()
 
 
 @app.get("/market")
@@ -162,6 +169,8 @@ async def ws_endpoint(ws: WebSocket):
                             "source": "spark" if STATE.spark_warm else "orchestrator"})
         for row in reversed(STATE.ledger):
             await ws.send_json(row)
+        # current P2P-vs-grid totals so a reconnecting client sees them at once
+        await ws.send_json(gridcompare_event())
 
         while True:
             event = await q.get()

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Cpu, Database, Network, Key, Flame, RefreshCw, Send, CheckCircle2, AlertCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Cpu, Database, Network, Key, Flame } from 'lucide-react'
 import type { DemoEventState } from '../../demo/events'
 
 interface Props {

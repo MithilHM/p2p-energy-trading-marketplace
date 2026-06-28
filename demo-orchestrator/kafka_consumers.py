@@ -7,7 +7,7 @@ import time
 
 from kafka import KafkaConsumer
 
-from config import KAFKA_BROKER, BASE_PRICE, clamp_price, now_ms
+from config import KAFKA_BROKER, now_ms
 from event_bus import bus
 from settlement import emit_match_threadsafe
 from state import STATE
@@ -34,23 +34,6 @@ def _consumer(topic: str) -> KafkaConsumer:
             delay = min(delay * 2, 30)
 
 
-def _price_from(supply: float, demand: float) -> float:
-    if supply <= 0:
-        return clamp_price(BASE_PRICE * 2)
-    return clamp_price(BASE_PRICE * (demand / supply))
-
-
-def _emit_price(price: float, source: str):
-    prev = STATE.last_price or price
-    delta = round(((price - prev) / prev) * 100, 1) if prev else 0.0
-    STATE.last_price = price
-    bus.publish_threadsafe({
-        "type": "price", "ts": now_ms(), "price": round(price, 2), "deltaPct": delta,
-        "trend": "up" if delta > 0.2 else "down" if delta < -0.2 else "flat",
-        "source": source,
-    })
-
-
 def _run_readings(topic: str, role: str):
     consumer = _consumer(topic)
     logger.info(f"consuming {topic}")
@@ -74,15 +57,12 @@ def _run_market_state():
     logger.info("consuming market-state")
     for msg in consumer:
         try:
-            d = msg.value
-            supply = float(d.get("supply", 0))
-            demand = float(d.get("demand", 0))
+            _ = msg.value
+            # Note that Spark has warmed (surfaced in /health) but do NOT drive the
+            # live chart from here: Spark emits one 1-minute window point at a time,
+            # far too sparse and smooth for a compelling dashboard graph. The
+            # high-frequency market_aggregator owns the supply/demand + price view.
             STATE.spark_warm = True
-            bus.publish_threadsafe({
-                "type": "market", "ts": now_ms(), "supply": round(supply, 2),
-                "demand": round(demand, 2), "source": "spark",
-            })
-            _emit_price(_price_from(supply, demand), "spark")
         except Exception as e:
             logger.error(f"market-state parse error: {e}")
 

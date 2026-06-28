@@ -11,6 +11,7 @@ import { reduceEvent } from './eventReducer'
 import { STAGES } from './stages'
 import type { SpotlightTarget } from './stages'
 import { useOrchestrator } from './useOrchestrator'
+import { useVoiceAlerts } from './useVoiceAlerts'
 
 export type DemoStatus = 'idle' | 'running' | 'paused' | 'done'
 
@@ -29,7 +30,12 @@ export function useDemoOrchestrator() {
   const [stageIndex, setStageIndex] = useState(0)
   const firedRef = useRef<Set<number>>(new Set())
 
-  const { state: conn, connect, cue, disconnect } = useOrchestrator((e: DemoEvent) => dispatch(e))
+  const voice = useVoiceAlerts()
+
+  const { state: conn, connect, cue, disconnect } = useOrchestrator((e: DemoEvent) => {
+    voice.announce(e)
+    dispatch(e)
+  })
 
   const fireCue = useCallback(
     (idx: number) => {
@@ -117,6 +123,7 @@ export function useDemoOrchestrator() {
     ready,
     dialog: { title: stage.title, body: stage.body },
     events,
+    voice,
     controls: { run, next, back, goTo, pause, play, skip, replay },
   }
 }
