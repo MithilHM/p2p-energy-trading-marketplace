@@ -25,7 +25,7 @@ logs/
 npm-debug.log*
 
 # Database
-data/
+/data/
 *.db
 influxdb-data/
 
