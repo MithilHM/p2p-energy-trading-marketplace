@@ -87,11 +87,11 @@ services:
       - key: INFLUXDB_PORT
         value: "8086"
 
-  # 7. InfluxDB (Private Service using Docker image)
+  # 7. InfluxDB (Private Service using Dockerfile)
   - type: pserv
     name: influxdb
-    env: image
-    image: influxdb:2.7
+    env: docker
+    dockerfilePath: docker/Dockerfile.influxdb
     plan: free
     disk:
       name: influxdb-data
@@ -128,8 +128,8 @@ services:
   # 10. Zookeeper (Private Service for Kafka)
   - type: pserv
     name: zookeeper
-    env: image
-    image: confluentinc/cp-zookeeper:7.5.0
+    env: docker
+    dockerfilePath: docker/Dockerfile.zookeeper
     plan: free
     envVars:
       - key: ZOOKEEPER_CLIENT_PORT
@@ -140,8 +140,8 @@ services:
   # 11. Kafka Broker (Private Service)
   - type: pserv
     name: kafka
-    env: image
-    image: confluentinc/cp-kafka:7.5.0
+    env: docker
+    dockerfilePath: docker/Dockerfile.kafka
     plan: free
     envVars:
       - key: KAFKA_BROKER_ID
