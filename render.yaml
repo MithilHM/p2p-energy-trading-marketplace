@@ -150,5 +150,5 @@ services:
         value: zookeeper:2181
       - key: KAFKA_ADVERTISED_LISTENERS
         value: PLAINTEXT://kafka:9092
-      - key: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:
+      - key: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
         value: "1"
