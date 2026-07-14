@@ -93,10 +93,6 @@ services:
     env: docker
     dockerfilePath: docker/Dockerfile.influxdb
     plan: free
-    disk:
-      name: influxdb-data
-      mountPath: /var/lib/influxdb2
-      sizeGB: 1
     envVars:
       - key: DOCKER_INFLUXDB_INIT_MODE
         value: setup
