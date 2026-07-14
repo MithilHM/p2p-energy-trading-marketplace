@@ -126,14 +126,14 @@ export default function App() {
 
   if (currentPath === '/producer/dashboard') {
     return (
-      <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice}>
-        <ProducerDashboard />
+      <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice} currentPath={currentPath}>
+        <ProducerDashboard voice={voice} />
       </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice}>
+    <DashboardLayout now={now} marketOpen={status !== 'idle'} voice={voice} currentPath={currentPath}>
       <AnimatePresence mode="wait">
         {status === 'idle' ? (
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>

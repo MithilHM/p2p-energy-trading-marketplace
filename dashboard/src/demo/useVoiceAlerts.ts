@@ -47,6 +47,7 @@ export interface VoiceControls {
   toggle: () => void
   /** feed every event here; the hook decides what (if anything) to speak */
   announce: (e: DemoEvent) => void
+  speak?: (text: string) => void
 }
 
 function shortId(id: string): string {
@@ -174,5 +175,11 @@ export function useVoiceAlerts(): VoiceControls {
     }
   }, [])
 
-  return { supported, enabled, toggle, announce }
+  const speakExternal = useCallback((text: string) => {
+    if (enabledRef.current) {
+      speak(text)
+    }
+  }, [speak])
+
+  return { supported, enabled, toggle, announce, speak: speakExternal }
 }

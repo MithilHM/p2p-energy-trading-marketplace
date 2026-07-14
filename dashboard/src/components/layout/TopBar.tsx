@@ -7,6 +7,7 @@ interface TopBarProps {
   now: number
   marketOpen: boolean
   voice?: VoiceControls
+  currentPath?: string
 }
 
 /** Tickers in the top bar — a compact macro strip of headline rates. */
@@ -18,7 +19,7 @@ const ticker = [
   { label: 'CO₂', value: '0.21', unit: 't/MWh', up: false },
 ]
 
-export function TopBar({ now, marketOpen, voice }: TopBarProps) {
+export function TopBar({ now, marketOpen, voice, currentPath }: TopBarProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-charcoal/85 backdrop-blur-md">
       <div className="flex h-14 items-center gap-4 px-4 sm:px-5">
@@ -56,6 +57,19 @@ export function TopBar({ now, marketOpen, voice }: TopBarProps) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2 md:flex-none">
+          {/* Navigation Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextPath = currentPath === '/producer/dashboard' ? '/' : '/producer/dashboard'
+              window.history.pushState({}, '', nextPath)
+              window.dispatchEvent(new Event('popstate'))
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-700/70 bg-slate-900/60 text-xs font-semibold text-slate-300 hover:text-slate-150 hover:bg-slate-800/80 transition-colors"
+          >
+            {currentPath === '/producer/dashboard' ? 'Exchange Dashboard' : 'Peer Dashboard'}
+          </button>
+
           {/* Voice alerts toggle */}
           {voice?.supported && (
             <button

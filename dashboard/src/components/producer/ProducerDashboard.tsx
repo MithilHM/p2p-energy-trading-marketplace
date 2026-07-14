@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Battery, Zap, DollarSign, Network, CheckCircle2, Power, Gauge } from 'lucide-react'
+import type { VoiceControls } from '../../demo/useVoiceAlerts'
 
 interface DashboardData {
   producer_id: string
@@ -10,7 +11,11 @@ interface DashboardData {
   connection_steps: string[]
 }
 
-export function ProducerDashboard() {
+interface ProducerDashboardProps {
+  voice?: VoiceControls
+}
+
+export function ProducerDashboard({ voice }: ProducerDashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,6 +35,36 @@ export function ProducerDashboard() {
 
   // Calculate online status (heartbeat check: active if seen in last 10 seconds)
   const [isOnline, setIsOnline] = useState(false)
+  const [hasTelemetry, setHasTelemetry] = useState(false)
+
+  // Voice alerts for page-specific actions
+  useEffect(() => {
+    if (voice?.speak) {
+      voice.speak('Welcome to the Peer Dashboard.')
+    }
+  }, [])
+
+  const prevOnline = useRef(isOnline)
+  useEffect(() => {
+    if (prevOnline.current !== isOnline) {
+      prevOnline.current = isOnline
+      if (voice?.speak) {
+        voice.speak(`Smart meter is now ${isOnline ? 'online' : 'offline'}.`)
+      }
+    }
+  }, [isOnline, voice])
+
+  const prevStatus = useRef(espData.loadStatus)
+  useEffect(() => {
+    if (hasTelemetry && prevStatus.current !== espData.loadStatus) {
+      prevStatus.current = espData.loadStatus
+      if (voice?.speak) {
+        voice.speak(`Switch status changed to ${espData.loadStatus}.`)
+      }
+    } else if (hasTelemetry) {
+      prevStatus.current = espData.loadStatus
+    }
+  }, [espData.loadStatus, hasTelemetry, voice])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -68,6 +103,7 @@ export function ProducerDashboard() {
               loadStatus: rawData.load_status ?? 'OFF',
               lastSeen: Date.now(),
             })
+            setHasTelemetry(true)
           }
         } catch (err) {
           console.error('Error parsing WS message:', err)
@@ -170,7 +206,7 @@ export function ProducerDashboard() {
       <div className="flex h-full min-h-[500px] items-center justify-center text-slate-400">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-500" />
-          <p>Loading Producer Dashboard...</p>
+          <p>Loading Peer Dashboard...</p>
         </div>
       </div>
     )
@@ -196,7 +232,7 @@ export function ProducerDashboard() {
       className="mx-auto max-w-5xl p-6"
     >
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-100">Producer Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-100">Peer Dashboard</h1>
         <p className="text-slate-400 mt-2">Welcome back, {data.producer_id}. Here is your daily performance.</p>
       </div>
 
